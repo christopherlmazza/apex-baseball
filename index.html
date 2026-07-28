@@ -304,7 +304,8 @@ function boot(){
   var pts=['ANY','4-Seam','Sinker','Cutter','Slider','Sweeper','Curveball','Changeup','Splitter'];
   el('lbPitch').innerHTML=pts.map(function(x){return '<option value="'+x+'">'+(x==='ANY'?'Any pitch':x)+'</option>';}).join('');
   buildPitchers(); buildComps(); buildHeat(); buildLeaders();
-  if(P.length) openPitcher(P[0].name+'|'+P[0].team);
+  if(P.length) openPitcher(P[0].name+'|'+P[0].team,true);
+  show('dash');
 }
 
 /* ---------- pitcher table ---------- */
@@ -342,8 +343,8 @@ function renderPitchers(){
 }
 function findP(key){var i=key.indexOf('|');var n=key.slice(0,i),t=key.slice(i+1);
   return P.find(function(p){return p.name===n&&p.team===t;});}
-function openPitcher(key){
-  var p=findP(key);if(!p)return;show('pitchers');
+function openPitcher(key,noNav){
+  var p=findP(key);if(!p)return;if(!noNav)show('pitchers');
   el('arName').textContent=p.name;
   el('arMeta').innerHTML=cleanTeam(p.team)+' · '+(p.hand==='R'?'RHP':'LHP')+' · '+p.n+' pitches · FB '+fmt(p.fb)+' mph';
   var rows='<div style="overflow:auto"><table style="font-size:12px"><thead><tr><th>Pitch</th><th>Use</th><th>Velo</th><th>Spin</th><th>iVB</th><th>HB</th><th>Ext</th><th>VAA</th><th>Whiff</th></tr></thead><tbody>';
