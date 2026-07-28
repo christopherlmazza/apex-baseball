@@ -9,18 +9,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.6.0/dist/tabler-icons.min.css">
 <style>
-:root{
-  --bg:#05070d;--panel:#0d1424;--panel2:#111a2e;
-  --line:rgba(120,160,220,.12);--line2:rgba(120,160,220,.24);
-  --txt:#e8eefc;--mut:#8ea0c4;--dim:#5a6a8c;
-  --acc:#3df5c0;--acc2:#6a8bff;--mag:#ff5db1;
-  --glow:0 0 24px rgba(61,245,192,.25);
-  --mono:'JetBrains Mono',monospace;--disp:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;
-}
+:root{--bg:#05070d;--panel:#0d1424;--panel2:#111a2e;--line:rgba(120,160,220,.12);--line2:rgba(120,160,220,.24);
+--txt:#e8eefc;--mut:#8ea0c4;--dim:#5a6a8c;--acc:#3df5c0;--acc2:#6a8bff;--mag:#ff5db1;--glow:0 0 24px rgba(61,245,192,.25);
+--mono:'JetBrains Mono',monospace;--disp:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--txt);font-family:var(--body);font-size:14px;line-height:1.5;
-  background-image:radial-gradient(900px 500px at 78% -8%,rgba(61,245,192,.10),transparent 60%),radial-gradient(700px 500px at 8% 108%,rgba(106,139,255,.10),transparent 60%),linear-gradient(rgba(120,160,220,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(120,160,220,.03) 1px,transparent 1px);
-  background-size:auto,auto,46px 46px,46px 46px;min-height:100vh}
+background-image:radial-gradient(900px 500px at 78% -8%,rgba(61,245,192,.10),transparent 60%),radial-gradient(700px 500px at 8% 108%,rgba(106,139,255,.10),transparent 60%),linear-gradient(rgba(120,160,220,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(120,160,220,.03) 1px,transparent 1px);
+background-size:auto,auto,46px 46px,46px 46px;min-height:100vh}
 ::selection{background:rgba(61,245,192,.3)}
 .app{display:flex;min-height:100vh}
 .side{width:238px;flex:0 0 238px;border-right:1px solid var(--line);padding:22px 16px;position:sticky;top:0;height:100vh;overflow-y:auto}
@@ -37,15 +32,17 @@ body{background:var(--bg);color:var(--txt);font-family:var(--body);font-size:14p
 .nav a.on::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:3px;background:var(--acc);box-shadow:var(--glow)}
 .main{flex:1;min-width:0;padding:22px 30px 60px}
 .top{display:flex;align-items:center;gap:16px;margin-bottom:26px}
-.search{flex:1;max-width:440px;display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:11px 15px;color:var(--dim)}
+.search{flex:1;max-width:460px;display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:11px 15px;color:var(--dim);position:relative}
 .search input{flex:1;background:transparent;border:none;outline:none;color:var(--txt);font-family:var(--body);font-size:13.5px}
+.sugg{position:absolute;top:48px;left:0;right:0;background:var(--panel2);border:1px solid var(--line2);border-radius:11px;z-index:20;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.sugg div{padding:10px 14px;cursor:pointer;font-size:13px}.sugg div:hover{background:rgba(61,245,192,.1);color:var(--acc)}
 .badge{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--mut);border:1px solid var(--line);border-radius:11px;padding:9px 13px;background:var(--panel)}
 .badge .live{width:7px;height:7px;border-radius:50%;background:var(--acc);box-shadow:var(--glow);animation:pulse 2s infinite}
 @keyframes pulse{50%{opacity:.35}}
 .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--acc);margin-bottom:12px}
 .hero h1{font-family:var(--disp);font-size:44px;line-height:1.05;font-weight:700;letter-spacing:-.02em;margin-bottom:14px}
 .hero h1 .g{background:linear-gradient(120deg,var(--acc),var(--acc2) 60%,var(--mag));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-.hero p{color:var(--mut);font-size:16px;max-width:560px;margin-bottom:24px}
+.hero p{color:var(--mut);font-size:16px;max-width:600px;margin-bottom:24px}
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:30px 0}
 .kpi{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:20px;position:relative;overflow:hidden;transition:.2s}
 .kpi:hover{border-color:var(--line2);transform:translateY(-2px)}
@@ -53,7 +50,6 @@ body{background:var(--bg);color:var(--txt);font-family:var(--body);font-size:14p
 .kpi .k{color:var(--dim);font-size:12px;text-transform:uppercase;letter-spacing:.14em;margin-top:4px}
 .kpi::after{content:"";position:absolute;right:-30px;top:-30px;width:90px;height:90px;border-radius:50%;background:radial-gradient(var(--acc),transparent 70%);opacity:.12}
 .grid2{display:grid;grid-template-columns:1.5fr 1fr;gap:16px}
-.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px}
 .panel h3{font-family:var(--disp);font-size:15px;font-weight:600;margin-bottom:15px;display:flex;align-items:center;gap:9px}
 .panel h3 i{color:var(--acc)}
@@ -62,46 +58,34 @@ h2.sec{font-family:var(--disp);font-size:26px;font-weight:600;letter-spacing:-.0
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{text-align:left;color:var(--dim);font-weight:500;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
 th.srt{cursor:pointer;user-select:none}th.srt:hover{color:var(--mut)}
-td{padding:11px 10px;border-bottom:1px solid var(--line)}
+td{padding:10px;border-bottom:1px solid var(--line)}
 tbody tr{transition:.12s;cursor:pointer}tbody tr:hover{background:var(--panel2)}
 tr:last-child td{border-bottom:none}
 .mono{font-family:var(--mono)}.mut{color:var(--mut)}.dim{color:var(--dim)}
-.tag{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:20px;background:rgba(61,245,192,.12);color:var(--acc);border:1px solid rgba(61,245,192,.2)}
-.tag.v{background:rgba(106,139,255,.12);color:var(--acc2);border-color:rgba(106,139,255,.2)}
-.tag.m{background:rgba(255,93,177,.12);color:var(--mag);border-color:rgba(255,93,177,.2)}
-.chip{display:inline-block;font-size:12.5px;padding:6px 13px;border-radius:20px;border:1px solid var(--line2);color:var(--mut);margin:3px 5px 3px 0;cursor:pointer;transition:.15s}
-.chip:hover,.chip.on{border-color:var(--acc);color:var(--acc);background:rgba(61,245,192,.09)}
+.plus{font-family:var(--mono);font-weight:600;padding:2px 7px;border-radius:6px;font-size:12px}
+.sel{background:var(--panel);border:1px solid var(--line2);border-radius:10px;color:var(--txt);padding:10px 13px;font-family:var(--body);font-size:13.5px;outline:none;cursor:pointer}
 .btn{display:inline-flex;align-items:center;gap:9px;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#04121a;border:none;border-radius:11px;padding:12px 18px;font-family:var(--disp);font-weight:600;font-size:13.5px;cursor:pointer;box-shadow:var(--glow);transition:.15s}
 .btn:hover{filter:brightness(1.08);transform:translateY(-1px)}
 .btn.ghost{background:transparent;color:var(--txt);border:1px solid var(--line2);box-shadow:none}
-.quick{display:flex;flex-direction:column;gap:9px}
-.qbtn{display:flex;align-items:center;gap:12px;padding:14px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);cursor:pointer;font-size:13.5px;transition:.15s;text-align:left;font-family:var(--body)}
-.qbtn:hover{border-color:var(--acc);transform:translateX(3px)}
-.qbtn i{color:var(--acc);font-size:17px}
 .seg{display:inline-flex;border:1px solid var(--line2);border-radius:10px;overflow:hidden}
-.seg button{border:none;background:transparent;color:var(--mut);padding:9px 15px;font-size:13px;cursor:pointer;font-family:var(--mono)}
+.seg button{border:none;background:transparent;color:var(--mut);padding:8px 15px;font-size:12.5px;cursor:pointer;font-family:var(--mono)}
 .seg button.on{background:var(--acc);color:#04121a}
-.rng{display:flex;align-items:center;gap:12px;margin:14px 0}
-.rng label{width:78px;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
-.rng .v{width:64px;text-align:right;font-family:var(--mono);color:var(--acc);font-weight:500}
-input[type=range]{flex:1;-webkit-appearance:none;height:4px;border-radius:4px;background:var(--line2);outline:none}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--acc);box-shadow:var(--glow);cursor:pointer}
-.sel{background:var(--panel);border:1px solid var(--line2);border-radius:10px;color:var(--txt);padding:10px 13px;font-family:var(--body);font-size:13.5px;outline:none;cursor:pointer}
-.comp{display:flex;align-items:center;justify-content:space-between;padding:13px 15px;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;background:var(--panel2)}
-.comp .rank{font-family:var(--mono);color:var(--dim);margin-right:8px}
+.comp{display:flex;align-items:center;justify-content:space-between;padding:12px 15px;border:1px solid var(--line);border-radius:12px;margin-bottom:9px;background:var(--panel2)}
 .comp .m{font-family:var(--disp);font-size:20px;font-weight:700;color:var(--acc)}
 .legend{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--mut);margin-top:14px}
 .legbar{height:10px;width:150px;border-radius:6px;background:linear-gradient(90deg,#2f6df0,#7aa0e8,#e9edf4,#f0a15a,#e5342e)}
-.heatwrap{display:flex;flex-wrap:wrap;gap:18px}
-.heatcard{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:14px;text-align:center}
-.heatcard .ht{font-family:var(--disp);font-weight:600;font-size:13px;margin-bottom:8px}
-.ptbar{height:7px;border-radius:5px;background:var(--acc);display:inline-block;vertical-align:middle}
-[data-p]{display:none}[data-p].show{display:block;animation:fi .35s}
-@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.heatwrap{display:flex;flex-wrap:wrap;gap:16px}
+.heatcard{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center}
+.heatcard .ht{font-family:var(--disp);font-weight:600;font-size:12.5px;margin-bottom:6px}
+.pill{display:inline-block;font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid var(--line2);color:var(--mut)}
+.card{background:linear-gradient(160deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:16px;padding:18px}
+.statbig{font-family:var(--disp);font-size:30px;font-weight:700}
 #loader{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;z-index:50}
 .spin{width:46px;height:46px;border-radius:50%;border:3px solid var(--line2);border-top-color:var(--acc);animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
-@media(max-width:860px){.side{display:none}.kpis,.grid2,.grid3{grid-template-columns:1fr}}
+[data-p]{display:none}[data-p].show{display:block;animation:fi .35s}
+@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media(max-width:900px){.side{display:none}.kpis,.grid2{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -116,7 +100,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <a data-go="pitchers"><i class="ti ti-user-bolt"></i> Pitcher database</a>
       <a data-go="leaders"><i class="ti ti-trophy"></i> Leaderboards</a>
       <span class="lbl">Models</span>
-      <a data-go="comps"><i class="ti ti-arrows-shuffle"></i> Comp finder</a>
+      <a data-go="models"><i class="ti ti-chart-dots"></i> Stuff+ / Command+</a>
+      <a data-go="comps"><i class="ti ti-arrows-shuffle"></i> MLB comps</a>
       <a data-go="heat"><i class="ti ti-grid-dots"></i> Heatmaps</a>
       <span class="lbl">Info</span>
       <a data-go="about"><i class="ti ti-info-circle"></i> About</a>
@@ -124,8 +109,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   </aside>
   <main class="main">
     <div class="top">
-      <div class="search"><i class="ti ti-search"></i><input id="globalSearch" placeholder="Search any pitcher or team…"></div>
-      <div class="badge"><span class="live"></span> <span id="syncBadge">TrackMan · loading</span></div>
+      <div class="search"><i class="ti ti-search"></i><input id="gsearch" placeholder="Search any pitcher or school…" autocomplete="off"><div class="sugg" id="gsug" style="display:none"></div></div>
+      <div class="badge"><span class="live"></span> <span id="syncBadge">loading</span></div>
     </div>
 
     <!-- DASHBOARD -->
@@ -133,9 +118,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="hero">
         <div class="eyebrow">College Baseball Intelligence</div>
         <h1>See the game in <span class="g">pure signal.</span></h1>
-        <p>Pro-grade TrackMan analytics on every D1 arm — arsenals, pitch shapes, heatmaps and comps, from the full 2026 season.</p>
+        <p>Pro-grade TrackMan analytics on every D1 arm — arsenals, FanGraphs-calibrated Stuff+ &amp; Command+, MLB comps, heatmaps and full outing reports, from the 2026 season.</p>
         <button class="btn" data-go="pitchers"><i class="ti ti-bolt"></i> Open pitcher database</button>
-        <button class="btn ghost" data-go="comps"><i class="ti ti-arrows-shuffle"></i> Find a comp</button>
+        <button class="btn ghost" data-go="comps"><i class="ti ti-arrows-shuffle"></i> Find an MLB comp</button>
       </div>
       <div class="kpis">
         <div class="kpi"><div class="n" id="kP">—</div><div class="k">Pitchers tracked</div></div>
@@ -145,16 +130,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </div>
       <div class="grid2">
         <div class="panel">
-          <h3><i class="ti ti-flame"></i> Velocity leaders (150+ pitches)</h3>
-          <table><thead><tr><th>Pitcher</th><th>Team</th><th>FB velo</th><th>Top pitch</th></tr></thead><tbody id="dashLead"></tbody></table>
+          <h3><i class="ti ti-flame"></i> Stuff+ leaders (150+ pitches)</h3>
+          <table><thead><tr><th>Pitcher</th><th>Team</th><th>FB</th><th>Stuff+</th><th>MLB comp</th></tr></thead><tbody id="dashLead"></tbody></table>
         </div>
         <div class="panel">
-          <h3><i class="ti ti-bolt"></i> Quick tools</h3>
-          <div class="quick">
-            <button class="qbtn" data-go="pitchers"><i class="ti ti-user-bolt"></i> Browse all pitchers</button>
-            <button class="qbtn" data-go="leaders"><i class="ti ti-trophy"></i> Whiff & stuff leaderboards</button>
-            <button class="qbtn" data-go="comps"><i class="ti ti-arrows-shuffle"></i> Find similar arms</button>
-            <button class="qbtn" data-go="heat"><i class="ti ti-grid-dots"></i> Explore heatmaps</button>
+          <h3><i class="ti ti-bolt"></i> Explore</h3>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <button class="btn ghost" style="justify-content:flex-start" data-go="pitchers"><i class="ti ti-user-bolt"></i> Browse all pitchers</button>
+            <button class="btn ghost" style="justify-content:flex-start" data-go="leaders"><i class="ti ti-trophy"></i> Leaderboards</button>
+            <button class="btn ghost" style="justify-content:flex-start" data-go="models"><i class="ti ti-chart-dots"></i> Stuff+ &amp; Command+ models</button>
+            <button class="btn ghost" style="justify-content:flex-start" data-go="heat"><i class="ti ti-grid-dots"></i> Heatmap explorer</button>
           </div>
         </div>
       </div>
@@ -162,70 +147,68 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
     <!-- PITCHERS -->
     <section data-p="pitchers">
-      <h2 class="sec">Pitcher database</h2>
-      <p class="sub" id="pitSub">Every arm in the dataset. Search, filter by team, sort any column, click a row for the full arsenal.</p>
-      <div class="grid2" style="grid-template-columns:1.4fr 1fr;align-items:start">
+      <h2 class="sec" id="pTitle">Pitcher database</h2>
+      <p class="sub" id="pitSub"></p>
+      <div id="pList">
         <div class="panel">
           <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-            <input id="pSearch" class="sel" style="flex:1;min-width:160px" placeholder="Search pitcher…">
+            <input id="pSearch" class="sel" style="flex:1;min-width:160px" placeholder="Search pitcher or team…">
             <select id="pTeam" class="sel"><option value="">All teams</option></select>
-            <select id="pHand" class="sel"><option value="">R & L</option><option value="R">RHP</option><option value="L">LHP</option></select>
+            <select id="pHand" class="sel"><option value="">R &amp; L</option><option value="R">RHP</option><option value="L">LHP</option></select>
           </div>
-          <div style="overflow:auto;max-height:70vh">
+          <div style="overflow:auto">
           <table><thead><tr>
-            <th class="srt" data-s="name">Pitcher</th>
-            <th class="srt" data-s="team">Team</th>
-            <th class="srt" data-s="hand">T</th>
-            <th class="srt" data-s="fb">FB</th>
-            <th class="srt" data-s="n">Pitches</th>
-            <th>Mix</th>
+            <th class="srt" data-s="name">Pitcher</th><th class="srt" data-s="tn">Team</th>
+            <th class="srt" data-s="hand">T</th><th class="srt" data-s="fb">FB</th>
+            <th class="srt" data-s="stuff">Stuff+</th><th class="srt" data-s="cmd">Cmd+</th>
+            <th class="srt" data-s="n">Pit</th><th>Mix</th>
           </tr></thead><tbody id="pBody"></tbody></table>
           </div>
           <div class="dim mono" id="pCount" style="margin-top:10px;font-size:12px"></div>
         </div>
-        <div class="panel">
-          <h3><i class="ti ti-list-details"></i> <span id="arName">Select a pitcher</span></h3>
-          <div id="arMeta" class="mut" style="margin-bottom:12px;font-size:12.5px"></div>
-          <div id="arsenal"></div>
-        </div>
       </div>
+      <div id="pDetail" style="display:none"></div>
     </section>
 
     <!-- LEADERBOARDS -->
     <section data-p="leaders">
       <h2 class="sec">Leaderboards</h2>
-      <p class="sub">Ranked across every qualified arm. Pick a metric and a pitch type.</p>
+      <p class="sub">Ranked across every qualified arm.</p>
       <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap">
         <select id="lbMetric" class="sel">
-          <option value="velo">Velocity</option>
-          <option value="whiff">Whiff %</option>
-          <option value="ivb">Induced vert break</option>
-          <option value="hb">Horizontal break</option>
-          <option value="spin">Spin rate</option>
+          <option value="stuff">Stuff+ (pitch)</option><option value="velo">Velocity</option>
+          <option value="whiff">Whiff %</option><option value="xwhiff">xWhiff %</option>
+          <option value="ivb">iVB</option><option value="hb">Horizontal break</option><option value="spin">Spin</option>
         </select>
         <select id="lbPitch" class="sel"><option value="ANY">Any pitch</option></select>
-        <select id="lbMin" class="sel"><option value="30">30+ thrown</option><option value="60">60+ thrown</option><option value="100">100+ thrown</option></select>
+        <select id="lbMin" class="sel"><option value="30">30+ thrown</option><option value="60">60+ thrown</option><option value="120">120+ thrown</option></select>
       </div>
-      <div class="panel">
-        <table><thead><tr><th>#</th><th>Pitcher</th><th>Team</th><th>Pitch</th><th id="lbCol">Value</th><th>Thrown</th></tr></thead><tbody id="lbBody"></tbody></table>
+      <div class="panel"><table><thead><tr><th>#</th><th>Pitcher</th><th>Team</th><th>Pitch</th><th id="lbCol">Value</th><th>Velo</th><th>Thrown</th></tr></thead><tbody id="lbBody"></tbody></table></div>
+    </section>
+
+    <!-- MODELS -->
+    <section data-p="models">
+      <h2 class="sec">Stuff+ &amp; Command+</h2>
+      <p class="sub">Pitch-quality models — 100 = average, ±10 = one standard deviation.</p>
+      <div class="grid2" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
+        <div class="card"><div class="pill">STUFF+</div><p style="color:var(--mut);margin:10px 0 0">Grades raw nastiness from velocity, movement, spin, and velo separation. Calibrated against <b style="color:var(--txt)">FanGraphs' 2025 MLB Stuff+</b> — within-pitch-type correlation ≈ 0.6 (4-Seam 0.59, Changeup 0.67, Slider 0.63), then normalized so D1 average = 100.</p></div>
+        <div class="card"><div class="pill" style="border-color:rgba(106,139,255,.4);color:var(--acc2)">COMMAND+</div><p style="color:var(--mut);margin:10px 0 0">Grades location quality — how often pitches land in valuable, low-damage spots for the count. Built from real plate-location tracking, normalized so D1 average = 100.</p></div>
       </div>
+      <div class="panel"><h3><i class="ti ti-trophy"></i> Top overall Stuff+ (150+ pitches)</h3>
+      <table><thead><tr><th>#</th><th>Pitcher</th><th>Team</th><th>Stuff+</th><th>Cmd+</th><th>FB</th><th>Arsenal</th></tr></thead><tbody id="mdBody"></tbody></table></div>
     </section>
 
     <!-- COMPS -->
     <section data-p="comps">
-      <h2 class="sec">Comp finder</h2>
-      <p class="sub">Pick any pitcher — APEX ranks the most similar arms in the country by fastball & breaking-ball shape.</p>
+      <h2 class="sec">MLB comps</h2>
+      <p class="sub">Every college pitch matched to its closest 2025 MLB pitch shape (velocity, iVB, horizontal break, by hand).</p>
       <div class="grid2" style="align-items:start">
         <div class="panel">
-          <h3><i class="ti ti-target"></i> Target pitcher</h3>
+          <h3><i class="ti ti-target"></i> Pick a pitcher</h3>
           <input id="cSearch" class="sel" style="width:100%;margin-bottom:10px" placeholder="Search pitcher…">
-          <select id="cList" class="sel" size="12" style="width:100%"></select>
+          <select id="cList" class="sel" size="14" style="width:100%"></select>
         </div>
-        <div class="panel">
-          <h3><i class="ti ti-arrows-shuffle"></i> Closest comps</h3>
-          <div id="cProfile" class="mut" style="font-size:12.5px;margin-bottom:14px"></div>
-          <div id="comps"></div>
-        </div>
+        <div class="panel"><h3><i class="ti ti-arrows-shuffle"></i> Closest MLB arms</h3><div id="cOut"></div></div>
       </div>
     </section>
 
@@ -235,8 +218,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <p class="sub">Catcher's view — real pitch locations, red (hot) to blue (cold), with the strike zone and home plate drawn in.</p>
       <div class="panel">
         <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-          <input id="hSearch" class="sel" style="min-width:200px" placeholder="Search pitcher…">
-          <select id="hList" class="sel" style="min-width:220px"></select>
+          <input id="hSearch" class="sel" style="min-width:220px" placeholder="Search pitcher…">
+          <select id="hList" class="sel" style="min-width:240px"></select>
           <div class="seg" id="hMetric"><button class="on" data-m="d">Density</button><button data-m="w">Whiff%</button></div>
         </div>
         <div class="heatwrap" id="heatWrap"></div>
@@ -246,12 +229,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
     <!-- ABOUT -->
     <section data-p="about">
-      <h2 class="sec">About APEX</h2>
-      <p class="sub">What's under the hood.</p>
-      <div class="panel" style="max-width:760px">
-        <p style="color:var(--mut);margin-bottom:14px">APEX is built on raw TrackMan pitch-tracking data from the 2026 NCAA Division I season. Every pitch is classified, aggregated by arm, and turned into arsenal profiles, pitch-shape metrics, location heatmaps and similarity comps.</p>
-        <p style="color:var(--mut);margin-bottom:14px"><b style="color:var(--txt)">Pitch classification</b> uses TrackMan's human tags with an auto-tag fallback, normalized into standard buckets (4-Seam, Sinker, Cutter, Slider, Sweeper, Curveball, Changeup, Splitter). Handedness is inferred from release side. Horizontal break is shown arm-side-positive.</p>
-        <p style="color:var(--mut);margin-bottom:14px"><b style="color:var(--txt)">Metrics</b> — velocity, spin, induced vertical break (iVB), horizontal break (HB), extension, release height/side, vertical approach angle (VAA) and whiff rate — are pitch-type averages over the season.</p>
+      <h2 class="sec">About APEX</h2><p class="sub">What's under the hood.</p>
+      <div class="panel" style="max-width:780px">
+        <p style="color:var(--mut);margin-bottom:14px">APEX runs on raw TrackMan pitch tracking from the 2026 NCAA Division I season — every pitch classified, aggregated by arm, and turned into arsenal profiles, models, MLB comps, heatmaps and outing reports.</p>
+        <p style="color:var(--mut);margin-bottom:14px"><b style="color:var(--txt)">Stuff+ &amp; Command+</b> are calibrated against FanGraphs' 2025 MLB Stuff+ (within-pitch-type r≈0.6) and normalized so 100 = D1 average, ±10 = one SD. Curveball/sinker/sweeper sub-models carry more noise due to smaller MLB training samples.</p>
+        <p style="color:var(--mut);margin-bottom:14px"><b style="color:var(--txt)">MLB comps</b> match each pitch to the nearest 2025 Statcast MLB pitch of the same type and handedness by velocity and movement.</p>
         <p style="color:var(--dim);font-size:12.5px" id="aboutMeta"></p>
       </div>
     </section>
@@ -259,218 +241,204 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 </div>
 
 <script>
-var DATA=null, P=[];
+var IX=null,P=[],TEAMS=[],SHARDBASE={},SHARDCACHE={};
 function el(id){return document.getElementById(id);}
 function fmt(v,d){return v==null?'—':(+v).toFixed(d==null?1:d);}
-function cleanTeam(t){return (t||'').replace(/_/g,' ');}
 var PTC={'4-Seam':'#3df5c0','Sinker':'#6a8bff','Cutter':'#b98bff','Slider':'#ff5db1','Sweeper':'#ff8f5d','Slurve':'#ff6b6b','Curveball':'#5dd0ff','Changeup':'#f5d33d','Splitter':'#9be15d','Knuckleball':'#c0c0c0'};
 function ptColor(pt){return PTC[pt]||'#8ea0c4';}
+function plusColor(v){if(v==null)return 'var(--mut)';return v>=110?'var(--acc)':v>=100?'#bfeee0':v>=90?'var(--mut)':'#ff8f8f';}
+function plusChip(v){if(v==null)return '<span class="dim">—</span>';var c=v>=110?'rgba(61,245,192,.16)':v>=100?'rgba(120,160,220,.12)':v>=90?'rgba(120,160,220,.08)':'rgba(255,93,177,.14)';return '<span class="plus" style="background:'+c+';color:'+plusColor(v)+'">'+v+'</span>';}
 
-/* ---------- nav ---------- */
-var panels={};
-document.querySelectorAll('[data-p]').forEach(function(s){panels[s.getAttribute('data-p')]=s;});
+var panels={};document.querySelectorAll('[data-p]').forEach(function(s){panels[s.getAttribute('data-p')]=s;});
 function show(id){for(var k in panels)panels[k].classList.toggle('show',k===id);
-  document.querySelectorAll('#nav a').forEach(function(a){a.classList.toggle('on',a.getAttribute('data-go')===id);});
-  window.scrollTo(0,0);}
-document.body.addEventListener('click',function(e){var t=e.target.closest('[data-go]');if(t){show(t.getAttribute('data-go'));}});
+  document.querySelectorAll('#nav a').forEach(function(a){a.classList.toggle('on',a.getAttribute('data-go')===id);});window.scrollTo(0,0);}
+document.body.addEventListener('click',function(e){var t=e.target.closest('[data-go]');if(t)show(t.getAttribute('data-go'));});
 
-/* ---------- load ---------- */
-fetch('data.json').then(function(r){return r.json();}).then(function(d){
-  DATA=d; P=d.pitchers;
-  el('loader').style.display='none';
-  boot();
-}).catch(function(e){el('loadtxt').textContent='Failed to load data: '+e;});
+fetch('index.json').then(function(r){return r.json();}).then(function(d){
+  IX=d;P=d.pitchers;TEAMS=d.teams;
+  // shard base offsets
+  P.forEach(function(p){if(SHARDBASE[p.shard]===undefined)SHARDBASE[p.shard]=p.i;});
+  el('loader').style.display='none';boot();
+}).catch(function(e){el('loadtxt').textContent='Failed to load: '+e;});
+
+function getDetail(p){return fetch('p'+p.shard+'.json').then(function(r){return r.json();}).then(function(arr){SHARDCACHE[p.shard]=arr;return arr[p.i-SHARDBASE[p.shard]];});}
 
 function boot(){
-  var m=DATA.meta;
+  var m=IX.meta;
   el('syncBadge').textContent='TrackMan · '+m.n_pitches.toLocaleString()+' pitches';
-  el('kP').textContent=m.n_pitchers.toLocaleString();
-  el('kT').textContent=m.n_teams.toLocaleString();
+  el('kP').textContent=m.n_pitchers.toLocaleString();el('kT').textContent=m.n_teams;
   el('kPit').textContent=(m.n_pitches/1e6).toFixed(2)+'M';
-  var fbs=P.map(function(p){return p.fb;}).filter(function(x){return x;});
-  el('kV').textContent=(fbs.reduce(function(a,b){return a+b;},0)/fbs.length).toFixed(1);
+  var fbs=P.map(function(p){return p.fb;}).filter(Boolean);el('kV').textContent=(fbs.reduce(function(a,b){return a+b;},0)/fbs.length).toFixed(1);
   el('pitSub').textContent=m.n_pitchers.toLocaleString()+' arms across '+m.n_teams+' teams · 2026 season.';
-  el('aboutMeta').textContent='Dataset: '+m.n_pitchers.toLocaleString()+' pitchers · '+m.n_teams+' teams · '+m.n_pitches.toLocaleString()+' pitches · 2026 season.';
-  // dashboard leaders
-  var lead=P.filter(function(p){return p.n>=150&&p.fb;}).sort(function(a,b){return b.fb-a.fb;}).slice(0,12);
-  el('dashLead').innerHTML=lead.map(function(p){var top=p.arsenal[0];
-    return '<tr data-pitcher="'+p.name+'|'+p.team+'"><td>'+p.name+'</td><td class="mut">'+cleanTeam(p.team)+'</td><td class="mono" style="color:var(--acc)">'+fmt(p.fb)+'</td><td><span class="tag" style="background:none;border-color:'+ptColor(top.pt)+'55;color:'+ptColor(top.pt)+'">'+top.pt+'</span></td></tr>';
-  }).join('');
-  el('dashLead').querySelectorAll('tr').forEach(function(tr){tr.onclick=function(){openPitcher(tr.getAttribute('data-pitcher'));};});
-  // team select
-  var opts='<option value="">All teams</option>'+DATA.teams.map(function(t){return '<option value="'+t+'">'+cleanTeam(t)+'</option>';}).join('');
-  el('pTeam').innerHTML=opts;
-  // leaderboard pitch options
-  var pts=['ANY','4-Seam','Sinker','Cutter','Slider','Sweeper','Curveball','Changeup','Splitter'];
-  el('lbPitch').innerHTML=pts.map(function(x){return '<option value="'+x+'">'+(x==='ANY'?'Any pitch':x)+'</option>';}).join('');
-  buildPitchers(); buildComps(); buildHeat(); buildLeaders();
-  if(P.length) openPitcher(P[0].name+'|'+P[0].team,true);
+  el('aboutMeta').textContent='Dataset: '+m.n_pitchers.toLocaleString()+' pitchers · '+m.n_teams+' teams · '+m.n_pitches.toLocaleString()+' pitches · 2026.';
+  el('pTeam').innerHTML='<option value="">All teams</option>'+TEAMS.map(function(t){return '<option value="'+t.c+'">'+t.n+'</option>';}).join('');
+  el('lbPitch').innerHTML=['ANY','4-Seam','Sinker','Cutter','Slider','Sweeper','Curveball','Changeup','Splitter'].map(function(x){return '<option value="'+x+'">'+(x==='ANY'?'Any pitch':x)+'</option>';}).join('');
+  // dash leaders
+  var lead=P.filter(function(p){return p.n>=150&&p.stuff!=null;}).sort(function(a,b){return b.stuff-a.stuff;}).slice(0,12);
+  el('dashLead').innerHTML=lead.map(function(p){return row(p,['name','tn','fb','stuff','comp']);}).join('');
+  wireRows('dashLead');
+  buildPitchers();buildLeaders();buildModels();buildComps();buildHeat();buildSearch();
   show('dash');
 }
+function row(p,cols){
+  var c={name:'<td>'+p.name+'</td>',tn:'<td class="mut">'+p.tn+'</td>',fb:'<td class="mono" style="color:var(--acc)">'+fmt(p.fb)+'</td>',
+    stuff:'<td>'+plusChip(p.stuff)+'</td>',cmd:'<td>'+plusChip(p.cmd)+'</td>',
+    comp:'<td class="mut">'+(p.comp?p.comp.n+' <span class="dim">'+p.comp.s+'%</span>':'—')+'</td>'};
+  return '<tr data-i="'+p.i+'">'+cols.map(function(k){return c[k];}).join('')+'</tr>';
+}
+function wireRows(id){el(id).querySelectorAll('tr').forEach(function(tr){tr.onclick=function(){openPitcher(+tr.getAttribute('data-i'));};});}
 
-/* ---------- pitcher table ---------- */
-var pSort={k:'n',dir:-1};
+/* ---- pitcher table ---- */
+var pSort={k:'stuff',dir:-1};
 function buildPitchers(){
-  el('pSearch').oninput=renderPitchers;
-  el('pTeam').onchange=renderPitchers;
-  el('pHand').onchange=renderPitchers;
-  el('globalSearch').oninput=function(){el('pSearch').value=this.value;show('pitchers');renderPitchers();};
-  document.querySelectorAll('#pBody').length;
-  document.querySelectorAll('th.srt').forEach(function(th){th.onclick=function(){
-    var k=th.getAttribute('data-s');pSort.dir=(pSort.k===k)?-pSort.dir:-1;pSort.k=k;renderPitchers();};});
+  el('pSearch').oninput=renderPitchers;el('pTeam').onchange=renderPitchers;el('pHand').onchange=renderPitchers;
+  document.querySelectorAll('#pitchers th.srt').forEach(function(th){th.onclick=function(){var k=th.getAttribute('data-s');pSort.dir=(pSort.k===k)?-pSort.dir:-1;pSort.k=k;renderPitchers();};});
   renderPitchers();
 }
+function backToList(){el('pDetail').style.display='none';el('pList').style.display='';el('pTitle').textContent='Pitcher database';}
 function renderPitchers(){
-  var q=el('pSearch').value.toLowerCase().trim();
-  var tm=el('pTeam').value, hd=el('pHand').value;
-  var rows=P.filter(function(p){
-    if(tm&&p.team!==tm)return false;
-    if(hd&&p.hand!==hd)return false;
-    if(q&&p.name.toLowerCase().indexOf(q)<0&&cleanTeam(p.team).toLowerCase().indexOf(q)<0)return false;
-    return true;});
-  var k=pSort.k;
-  rows.sort(function(a,b){var x=a[k],y=b[k];
-    if(typeof x==='string'){x=x||'';y=y||'';return pSort.dir*x.localeCompare(y);}
-    x=x==null?-999:x;y=y==null?-999:y;return pSort.dir*(x-y);});
-  el('pCount').textContent=rows.length.toLocaleString()+' pitchers';
-  var lim=rows.slice(0,250);
-  el('pBody').innerHTML=lim.map(function(p){
-    var mix=p.arsenal.slice(0,5).map(function(a){return '<span title="'+a.pt+' '+a.usage+'%" style="width:'+Math.max(6,a.usage*.55)+'px;height:8px;border-radius:3px;background:'+ptColor(a.pt)+';display:inline-block;margin-right:2px"></span>';}).join('');
-    return '<tr data-pitcher="'+p.name+'|'+p.team+'"><td>'+p.name+'</td><td class="mut">'+cleanTeam(p.team)+'</td><td class="mono dim">'+p.hand+'</td><td class="mono" style="color:var(--acc)">'+fmt(p.fb)+'</td><td class="mono">'+p.n+'</td><td>'+mix+'</td></tr>';
+  var q=el('pSearch').value.toLowerCase().trim(),tm=el('pTeam').value,hd=el('pHand').value;
+  var rows=P.filter(function(p){if(tm&&p.team!==tm)return false;if(hd&&p.hand!==hd)return false;
+    if(q&&p.name.toLowerCase().indexOf(q)<0&&p.tn.toLowerCase().indexOf(q)<0)return false;return true;});
+  var k=pSort.k;rows.sort(function(a,b){var x=a[k],y=b[k];if(typeof x==='string'){return pSort.dir*(x||'').localeCompare(y||'');}x=x==null?-999:x;y=y==null?-999:y;return pSort.dir*(x-y);});
+  el('pCount').textContent=rows.length.toLocaleString()+' pitchers'+(rows.length>300?' (showing top 300)':'');
+  el('pBody').innerHTML=rows.slice(0,300).map(function(p){
+    var mix=p.mix.slice(0,5).map(function(a){return '<span title="'+a.pt+' '+a.u+'%" style="width:'+Math.max(6,a.u*.5)+'px;height:8px;border-radius:3px;background:'+ptColor(a.pt)+';display:inline-block;margin-right:2px"></span>';}).join('');
+    return '<tr data-i="'+p.i+'"><td>'+p.name+'</td><td class="mut">'+p.tn+'</td><td class="mono dim">'+p.hand+'</td><td class="mono" style="color:var(--acc)">'+fmt(p.fb)+'</td><td>'+plusChip(p.stuff)+'</td><td>'+plusChip(p.cmd)+'</td><td class="mono">'+p.n+'</td><td>'+mix+'</td></tr>';
   }).join('');
-  if(rows.length>250) el('pCount').textContent+=' (showing top 250 — refine search)';
-  el('pBody').querySelectorAll('tr').forEach(function(tr){tr.onclick=function(){openPitcher(tr.getAttribute('data-pitcher'));};});
+  wireRows('pBody');
 }
-function findP(key){var i=key.indexOf('|');var n=key.slice(0,i),t=key.slice(i+1);
-  return P.find(function(p){return p.name===n&&p.team===t;});}
-function openPitcher(key,noNav){
-  var p=findP(key);if(!p)return;if(!noNav)show('pitchers');
-  el('arName').textContent=p.name;
-  el('arMeta').innerHTML=cleanTeam(p.team)+' · '+(p.hand==='R'?'RHP':'LHP')+' · '+p.n+' pitches · FB '+fmt(p.fb)+' mph';
-  var rows='<div style="overflow:auto"><table style="font-size:12px"><thead><tr><th>Pitch</th><th>Use</th><th>Velo</th><th>Spin</th><th>iVB</th><th>HB</th><th>Ext</th><th>VAA</th><th>Whiff</th></tr></thead><tbody>';
-  p.arsenal.forEach(function(a){
-    rows+='<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+ptColor(a.pt)+';margin-right:6px"></span>'+a.pt+'</td>'+
-      '<td class="mono">'+a.usage+'%</td><td class="mono" style="color:var(--acc)">'+fmt(a.velo)+'</td>'+
-      '<td class="mono">'+(a.spin||'—')+'</td><td class="mono">'+fmt(a.ivb)+'</td><td class="mono">'+fmt(a.hb)+'</td>'+
-      '<td class="mono">'+fmt(a.ext)+'</td><td class="mono">'+fmt(a.vaa)+'</td><td class="mono" style="color:var(--mag)">'+(a.whiff==null?'—':a.whiff+'%')+'</td></tr>';
+
+/* ---- pitcher detail (arsenal + models + comps + reports) ---- */
+function openPitcher(i){
+  var p=P[i];if(!p)return;show('pitchers');el('pList').style.display='none';el('pDetail').style.display='';
+  el('pTitle').textContent=p.name;window.scrollTo(0,0);
+  el('pDetail').innerHTML='<div class="mut mono" style="padding:20px">Loading '+p.name+'…</div>';
+  getDetail(p).then(function(det){renderDetail(p,det);});
+}
+function renderDetail(p,det){
+  var h='<a class="pill" style="cursor:pointer;display:inline-block;margin-bottom:14px" onclick="backToList()">← All pitchers</a>';
+  h+='<div class="grid2" style="grid-template-columns:1fr 320px;align-items:start;gap:16px">';
+  // left: arsenal
+  h+='<div><div class="panel"><h3><i class="ti ti-list-details"></i> '+p.name+' — arsenal</h3>';
+  h+='<div class="mut" style="margin:-6px 0 12px">'+p.tn+' · '+(p.hand==='R'?'RHP':'LHP')+' · '+p.n+' pitches · FB '+fmt(p.fb)+' mph</div>';
+  h+='<div style="overflow:auto"><table style="font-size:12px"><thead><tr><th>Pitch</th><th>Use</th><th>Velo</th><th>iVB</th><th>HB</th><th>Spin</th><th>VAA</th><th>Whiff</th><th>Stuff+</th><th>Cmd+</th><th>MLB comp</th></tr></thead><tbody>';
+  det.ars.forEach(function(a){
+    h+='<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+ptColor(a.pt)+';margin-right:6px"></span>'+a.pt+'</td><td class="mono">'+a.usage+'%</td><td class="mono" style="color:var(--acc)">'+fmt(a.velo)+'</td><td class="mono">'+fmt(a.ivb)+'</td><td class="mono">'+fmt(a.hb)+'</td><td class="mono dim">'+(a.spin||'—')+'</td><td class="mono">'+fmt(a.vaa)+'</td><td class="mono" style="color:var(--mag)">'+(a.whiff==null?'—':a.whiff+'%')+'</td><td>'+plusChip(a.stuff)+'</td><td>'+plusChip(a.cmd)+'</td><td class="mut" style="font-size:11.5px">'+(a.comp?a.comp.n+' <span class="dim">'+a.comp.s+'%</span>':'—')+'</td></tr>';
   });
-  rows+='</tbody></table></div>';
+  h+='</tbody></table></div></div>';
   // heatmaps
-  var heats=p.arsenal.filter(function(a){return a.heat;});
-  if(heats.length){
-    rows+='<div style="margin-top:16px"><div class="dim mono" style="font-size:11px;margin-bottom:8px">LOCATION · DENSITY (catcher\'s view)</div><div class="heatwrap">';
-    heats.forEach(function(a){rows+='<div class="heatcard"><div class="ht" style="color:'+ptColor(a.pt)+'">'+a.pt+'</div>'+svgHeat(a.heat.d,'d')+'</div>';});
-    rows+='</div></div>';
-  }
-  el('arsenal').innerHTML=rows;
+  var heats=det.ars.filter(function(a){return a.heat;});
+  if(heats.length){h+='<div class="panel" style="margin-top:16px"><h3><i class="ti ti-grid-dots"></i> Location — density (catcher\'s view)</h3><div class="heatwrap">';
+    heats.forEach(function(a){h+='<div class="heatcard"><div class="ht" style="color:'+ptColor(a.pt)+'">'+a.pt+'</div>'+svgHeat(a.heat.d,'d')+'</div>';});
+    h+='</div></div>';}
+  h+='</div>';
+  // right: summary cards + comp
+  h+='<div>';
+  h+='<div class="card" style="margin-bottom:12px;display:flex;gap:20px"><div><div class="dim" style="font-size:11px;letter-spacing:.1em">STUFF+</div><div class="statbig" style="color:'+plusColor(p.stuff)+'">'+(p.stuff==null?'—':p.stuff)+'</div></div><div><div class="dim" style="font-size:11px;letter-spacing:.1em">COMMAND+</div><div class="statbig" style="color:'+plusColor(p.cmd)+'">'+(p.cmd==null?'—':p.cmd)+'</div></div></div>';
+  if(p.comp)h+='<div class="comp"><div><div class="dim" style="font-size:11px">TOP MLB COMP</div><b>'+p.comp.n+'</b></div><div class="m">'+p.comp.s+'</div></div>';
+  // season report
+  var tp=det.ars.reduce(function(s,a){return s+(a.whiff?a.whiff*a.n:0);},0),tn=det.ars.reduce(function(s,a){return s+(a.whiff?a.n:0);},0);
+  h+='<div class="panel" style="margin-top:4px"><h3><i class="ti ti-file-analytics"></i> Season report</h3>';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:14px 26px"><div><div class="dim" style="font-size:11px">PITCHES</div><b class="mono">'+p.n+'</b></div><div><div class="dim" style="font-size:11px">OUTINGS</div><b class="mono">'+det.logs.length+'</b></div><div><div class="dim" style="font-size:11px">PITCH TYPES</div><b class="mono">'+det.ars.length+'</b></div><div><div class="dim" style="font-size:11px">WHIFF%</div><b class="mono" style="color:var(--mag)">'+(tn?Math.round(tp/tn)+'%':'—')+'</b></div></div></div>';
+  h+='</div></div>';
+  // outing log full width
+  h+='<div class="panel" style="margin-top:16px"><h3><i class="ti ti-clipboard-list"></i> Outing log</h3><div style="overflow:auto"><table style="font-size:12px"><thead><tr><th>Date</th><th>Pitches</th><th>Strike%</th><th>Whiff%</th><th>Arsenal (velo)</th></tr></thead><tbody>';
+  det.logs.slice().reverse().forEach(function(g){
+    var ars=g.ars.map(function(a){return '<span style="color:'+ptColor(a.pt)+'">'+a.pt+'</span> <span class="mono dim">'+a.n+' · '+fmt(a.velo)+'</span>';}).join(' &nbsp; ');
+    h+='<tr style="cursor:default"><td class="mono">'+g.d+'</td><td class="mono">'+g.np+'</td><td class="mono">'+g.str+'%</td><td class="mono" style="color:var(--mag)">'+(g.wh==null?'—':g.wh+'%')+'</td><td>'+ars+'</td></tr>';
+  });
+  h+='</tbody></table></div></div>';
+  el('pDetail').innerHTML=h;
 }
 
-/* ---------- heatmap svg ---------- */
-function smooth(G){var R=G.length,C=G[0].length,O=[];for(var y=0;y<R;y++){O[y]=[];for(var x=0;x<C;x++){
-  var s=0,w=0;for(var dy=-1;dy<=1;dy++)for(var dx=-1;dx<=1;dx++){var ny=y+dy,nx=x+dx;
-    if(ny<0||nx<0||ny>=R||nx>=C)continue;var v=G[ny][nx];if(v==null)continue;var k=(dx===0&&dy===0)?4:((dx===0||dy===0)?2:1);s+=v*k;w+=k;}
-  O[y][x]=w?s/w:null;}}return O;}
-function ramp(v){ // 0..1 -> blue->red
-  var stops=[[47,109,240],[122,160,232],[233,237,244],[240,161,90],[229,52,46]];
-  v=Math.max(0,Math.min(1,v));var t=v*4,i=Math.floor(t),f=t-i;if(i>=4){i=3;f=1;}
-  var a=stops[i],b=stops[i+1];return 'rgb('+Math.round(a[0]+(b[0]-a[0])*f)+','+Math.round(a[1]+(b[1]-a[1])*f)+','+Math.round(a[2]+(b[2]-a[2])*f)+')';}
-function reshape(flat,mode){ // flat 49 -> 7x7, -1(whiff)->null
-  var G=[];for(var y=0;y<7;y++){G[y]=[];for(var x=0;x<7;x++){var v=flat[y*7+x];
-    if(mode==='w'&&v<0)v=null;G[y][x]=v;}}return G;}
-function svgHeat(flat,mode){
-  var R=7,C=7,W=150,H=175,cw=W/C,ch=H/R;
-  var G=reshape(flat,mode);
-  var g2=(mode==='d')?smooth(G):G;
-  var mx=0;g2.forEach(function(r){r.forEach(function(v){if(v!=null&&v>mx)mx=v;});});if(mx<=0)mx=1;
-  var s='<svg width="'+(W+20)+'" height="'+(H+34)+'" viewBox="0 0 '+(W+20)+' '+(H+34)+'">';
-  var ox=10,oy=6;
-  for(var y=0;y<R;y++)for(var x=0;x<C;x++){var v=g2[y][x];
-    if(v==null){continue;}
-    var col=ramp(mode==='d'?v/mx:v/100);
-    s+='<rect x="'+(ox+x*cw).toFixed(1)+'" y="'+(oy+y*ch).toFixed(1)+'" width="'+(cw+.6).toFixed(1)+'" height="'+(ch+.6).toFixed(1)+'" fill="'+col+'" opacity="'+(mode==='d'?0.9:0.92)+'"/>';}
-  // strike zone (middle third-ish): cols 1..5 rows... zone roughly x 1.5..5.5 mapping. Use plate 1.5->4.0 ft
-  var zx=ox+cw*1, zy=oy+ch*0.6, zw=cw*5, zh=ch*5.2;
+/* ---- heatmap svg ---- */
+function reshape(flat,mode){var G=[];for(var y=0;y<7;y++){G[y]=[];for(var x=0;x<7;x++){var v=flat[y*7+x];if(mode==='w'&&v<0)v=null;G[y][x]=v;}}return G;}
+function smooth(G){var R=7,C=7,O=[];for(var y=0;y<R;y++){O[y]=[];for(var x=0;x<C;x++){var s=0,w=0;for(var dy=-1;dy<=1;dy++)for(var dx=-1;dx<=1;dx++){var ny=y+dy,nx=x+dx;if(ny<0||nx<0||ny>=R||nx>=C)continue;var v=G[ny][nx];if(v==null)continue;var k=(dx===0&&dy===0)?4:((dx===0||dy===0)?2:1);s+=v*k;w+=k;}O[y][x]=w?s/w:null;}}return O;}
+function ramp(v){var st=[[47,109,240],[122,160,232],[233,237,244],[240,161,90],[229,52,46]];v=Math.max(0,Math.min(1,v));var t=v*4,i=Math.floor(t),f=t-i;if(i>=4){i=3;f=1;}var a=st[i],b=st[i+1];return 'rgb('+Math.round(a[0]+(b[0]-a[0])*f)+','+Math.round(a[1]+(b[1]-a[1])*f)+','+Math.round(a[2]+(b[2]-a[2])*f)+')';}
+function svgHeat(flat,mode){var R=7,C=7,W=150,H=175,cw=W/C,ch=H/R;var G=reshape(flat,mode);var g2=(mode==='d')?smooth(G):G;var mx=0;g2.forEach(function(r){r.forEach(function(v){if(v!=null&&v>mx)mx=v;});});if(mx<=0)mx=1;
+  var s='<svg width="'+(W+20)+'" height="'+(H+34)+'" viewBox="0 0 '+(W+20)+' '+(H+34)+'">',ox=10,oy=6;
+  for(var y=0;y<R;y++)for(var x=0;x<C;x++){var v=g2[y][x];if(v==null)continue;var col=ramp(mode==='d'?v/mx:v/100);s+='<rect x="'+(ox+x*cw).toFixed(1)+'" y="'+(oy+y*ch).toFixed(1)+'" width="'+(cw+.6).toFixed(1)+'" height="'+(ch+.6).toFixed(1)+'" fill="'+col+'" opacity="0.9"/>';}
+  var zx=ox+cw*1,zy=oy+ch*0.6,zw=cw*5,zh=ch*5.2;
   s+='<rect x="'+zx.toFixed(1)+'" y="'+zy.toFixed(1)+'" width="'+zw.toFixed(1)+'" height="'+zh.toFixed(1)+'" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.4"/>';
-  // thirds
-  s+='<line x1="'+(zx+zw/3).toFixed(1)+'" y1="'+zy.toFixed(1)+'" x2="'+(zx+zw/3).toFixed(1)+'" y2="'+(zy+zh).toFixed(1)+'" stroke="rgba(255,255,255,.22)"/>';
-  s+='<line x1="'+(zx+2*zw/3).toFixed(1)+'" y1="'+zy.toFixed(1)+'" x2="'+(zx+2*zw/3).toFixed(1)+'" y2="'+(zy+zh).toFixed(1)+'" stroke="rgba(255,255,255,.22)"/>';
-  s+='<line x1="'+zx.toFixed(1)+'" y1="'+(zy+zh/3).toFixed(1)+'" x2="'+(zx+zw).toFixed(1)+'" y2="'+(zy+zh/3).toFixed(1)+'" stroke="rgba(255,255,255,.22)"/>';
-  s+='<line x1="'+zx.toFixed(1)+'" y1="'+(zy+2*zh/3).toFixed(1)+'" x2="'+(zx+zw).toFixed(1)+'" y2="'+(zy+2*zh/3).toFixed(1)+'" stroke="rgba(255,255,255,.22)"/>';
-  // home plate below
-  var pcx=ox+W/2, py=oy+H+8, pw=34;
-  s+='<path d="M'+(pcx-pw/2)+' '+py+' L'+(pcx+pw/2)+' '+py+' L'+(pcx+pw/2)+' '+(py+9)+' L'+pcx+' '+(py+17)+' L'+(pcx-pw/2)+' '+(py+9)+' Z" fill="rgba(255,255,255,.10)" stroke="rgba(255,255,255,.5)" stroke-width="1.2"/>';
-  s+='</svg>';return s;
-}
+  s+='<line x1="'+(zx+zw/3).toFixed(1)+'" y1="'+zy.toFixed(1)+'" x2="'+(zx+zw/3).toFixed(1)+'" y2="'+(zy+zh).toFixed(1)+'" stroke="rgba(255,255,255,.22)"/><line x1="'+(zx+2*zw/3).toFixed(1)+'" y1="'+zy.toFixed(1)+'" x2="'+(zx+2*zw/3).toFixed(1)+'" y2="'+(zy+zh).toFixed(1)+'" stroke="rgba(255,255,255,.22)"/><line x1="'+zx.toFixed(1)+'" y1="'+(zy+zh/3).toFixed(1)+'" x2="'+(zx+zw).toFixed(1)+'" y2="'+(zy+zh/3).toFixed(1)+'" stroke="rgba(255,255,255,.22)"/><line x1="'+zx.toFixed(1)+'" y1="'+(zy+2*zh/3).toFixed(1)+'" x2="'+(zx+zw).toFixed(1)+'" y2="'+(zy+2*zh/3).toFixed(1)+'" stroke="rgba(255,255,255,.22)"/>';
+  var pcx=ox+W/2,py=oy+H+8,pw=34;
+  s+='<path d="M'+(pcx-pw/2)+' '+py+' L'+(pcx+pw/2)+' '+py+' L'+(pcx+pw/2)+' '+(py+9)+' L'+pcx+' '+(py+17)+' L'+(pcx-pw/2)+' '+(py+9)+' Z" fill="rgba(255,255,255,.10)" stroke="rgba(255,255,255,.5)" stroke-width="1.2"/></svg>';return s;}
 
-/* ---------- leaderboards ---------- */
+/* ---- leaderboards ---- */
 function buildLeaders(){el('lbMetric').onchange=renderLeaders;el('lbPitch').onchange=renderLeaders;el('lbMin').onchange=renderLeaders;renderLeaders();}
 function renderLeaders(){
-  var met=el('lbMetric').value, pf=el('lbPitch').value, mn=+el('lbMin').value;
-  el('lbCol').textContent={velo:'Velocity',whiff:'Whiff %',ivb:'iVB',hb:'HB',spin:'Spin'}[met];
+  var met=el('lbMetric').value,pf=el('lbPitch').value,mn=+el('lbMin').value;
+  el('lbCol').textContent={stuff:'Stuff+',velo:'Velo',whiff:'Whiff%',xwhiff:'xWhiff%',ivb:'iVB',hb:'HB',spin:'Spin'}[met];
   var rows=[];
-  P.forEach(function(p){p.arsenal.forEach(function(a){
-    if(pf!=='ANY'&&a.pt!==pf)return;
-    if(a.n<mn)return;
-    var v=a[met];if(v==null)return;
-    rows.push({p:p,a:a,v:v});
+  P.forEach(function(p){p.mix.forEach(function(a){
+    if(pf!=='ANY'&&a.pt!==pf)return;var thrown=Math.round(a.u/100*p.n);if(thrown<mn)return;
+    var v=(met==='stuff')?a.stuff:(met==='velo')?a.velo:(met==='whiff')?a.wh:null;
+    // metrics needing detail (xwhiff/ivb/hb/spin) fall back to name-level via mix where available
+    if(met==='xwhiff'||met==='ivb'||met==='hb'||met==='spin'){v=a[met];}
+    if(v==null)return;rows.push({p:p,a:a,v:v,thrown:thrown});
   });});
-  rows.sort(function(x,y){return y.v-x.v;});
-  rows=rows.slice(0,50);
+  rows.sort(function(x,y){return y.v-x.v;});rows=rows.slice(0,60);
   el('lbBody').innerHTML=rows.map(function(r,i){
-    var val=met==='whiff'?r.v+'%':(met==='spin'?r.v:fmt(r.v));
-    return '<tr data-pitcher="'+r.p.name+'|'+r.p.team+'"><td class="mono dim">'+(i+1)+'</td><td>'+r.p.name+'</td><td class="mut">'+cleanTeam(r.p.team)+'</td><td><span style="color:'+ptColor(r.a.pt)+'">'+r.a.pt+'</span></td><td class="mono" style="color:var(--acc)">'+val+'</td><td class="mono dim">'+r.a.n+'</td></tr>';
+    var val=(met==='whiff'||met==='xwhiff')?r.v+'%':(met==='spin'?r.v:(met==='stuff'?r.v:fmt(r.v)));
+    return '<tr data-i="'+r.p.i+'"><td class="mono dim">'+(i+1)+'</td><td>'+r.p.name+'</td><td class="mut">'+r.p.tn+'</td><td><span style="color:'+ptColor(r.a.pt)+'">'+r.a.pt+'</span></td><td class="mono" style="color:var(--acc)">'+val+'</td><td class="mono dim">'+fmt(r.a.velo)+'</td><td class="mono dim">'+r.thrown+'</td></tr>';
   }).join('');
-  el('lbBody').querySelectorAll('tr').forEach(function(tr){tr.onclick=function(){openPitcher(tr.getAttribute('data-pitcher'));};});
+  wireRows('lbBody');
 }
 
-/* ---------- comps ---------- */
-function vec(p){
-  var fb=p.arsenal.find(function(a){return ['4-Seam','Sinker','Cutter'].indexOf(a.pt)>=0;})||p.arsenal[0];
-  var br=p.arsenal.find(function(a){return ['Slider','Sweeper','Curveball','Slurve'].indexOf(a.pt)>=0;});
-  return [p.fb||fb.velo||88, fb.ivb||0, fb.hb||0, br?br.velo:80, br?br.ivb:0, br?br.hb:0];
+/* ---- models ---- */
+function buildModels(){
+  var lead=P.filter(function(p){return p.n>=150&&p.stuff!=null;}).sort(function(a,b){return b.stuff-a.stuff;}).slice(0,40);
+  el('mdBody').innerHTML=lead.map(function(p,i){return '<tr data-i="'+p.i+'"><td class="mono dim">'+(i+1)+'</td><td>'+p.name+'</td><td class="mut">'+p.tn+'</td><td>'+plusChip(p.stuff)+'</td><td>'+plusChip(p.cmd)+'</td><td class="mono" style="color:var(--acc)">'+fmt(p.fb)+'</td><td class="dim" style="font-size:11.5px">'+p.mix.slice(0,4).map(function(a){return a.pt;}).join(', ')+'</td></tr>';}).join('');
+  wireRows('mdBody');
 }
-var VW=[1/3,1/4,1/4,1/3,1/5,1/5];
+
+/* ---- comps ---- */
 function buildComps(){
   var opts=P.slice().sort(function(a,b){return a.name.localeCompare(b.name);});
-  function fill(q){el('cList').innerHTML=opts.filter(function(p){return !q||p.name.toLowerCase().indexOf(q)>=0||cleanTeam(p.team).toLowerCase().indexOf(q)>=0;}).slice(0,300).map(function(p){return '<option value="'+p.name+'|'+p.team+'">'+p.name+' · '+cleanTeam(p.team)+'</option>';}).join('');}
-  fill('');
-  el('cSearch').oninput=function(){fill(this.value.toLowerCase().trim());};
-  el('cList').onchange=function(){renderComps(this.value);};
-  renderComps(P[0].name+'|'+P[0].team);
+  function fill(q){el('cList').innerHTML=opts.filter(function(p){return !q||p.name.toLowerCase().indexOf(q)>=0||p.tn.toLowerCase().indexOf(q)>=0;}).slice(0,400).map(function(p){return '<option value="'+p.i+'">'+p.name+' · '+p.tn+'</option>';}).join('');}
+  fill('');el('cSearch').oninput=function(){fill(this.value.toLowerCase().trim());};
+  el('cList').onchange=function(){renderComp(+this.value);};
+  renderComp(P.filter(function(p){return p.n>=150;}).sort(function(a,b){return b.stuff-a.stuff;})[0].i);
 }
-function renderComps(key){
-  var p=findP(key);if(!p)return;
-  var v=vec(p);
-  var res=P.filter(function(q){return q!==p&&q.n>=60;}).map(function(q){
-    var w=vec(q),d=0;for(var i=0;i<6;i++){var t=(v[i]-w[i])*VW[i];d+=t*t;}
-    return {q:q,d:Math.sqrt(d)};}).sort(function(a,b){return a.d-b.d;}).slice(0,6);
-  el('cProfile').innerHTML='<b style="color:var(--txt)">'+p.name+'</b> · '+cleanTeam(p.team)+' · '+(p.hand==='R'?'RHP':'LHP')+' — FB '+fmt(p.fb)+', '+p.arsenal.length+'-pitch mix';
-  el('comps').innerHTML=res.map(function(r,i){var sim=Math.max(0,100-r.d*7).toFixed(0);
-    return '<div class="comp" data-pitcher="'+r.q.name+'|'+r.q.team+'" style="cursor:pointer"><div><span class="rank">#'+(i+1)+'</span> <b>'+r.q.name+'</b> <span class="mut">· '+cleanTeam(r.q.team)+' · '+(r.q.hand==='R'?'RHP':'LHP')+'</span><div class="dim" style="font-size:11.5px;margin-top:3px">FB '+fmt(r.q.fb)+' · '+r.q.arsenal.slice(0,4).map(function(a){return a.pt;}).join(', ')+'</div></div><div class="m">'+sim+'</div></div>';
-  }).join('');
-  el('comps').querySelectorAll('.comp').forEach(function(c){c.onclick=function(){openPitcher(c.getAttribute('data-pitcher'));};});
+function renderComp(i){
+  var p=P[i];if(!p)return;el('cOut').innerHTML='<div class="mut mono">Loading…</div>';
+  getDetail(p).then(function(det){
+    var h='<div class="mut" style="margin-bottom:12px"><b style="color:var(--txt)">'+p.name+'</b> · '+p.tn+' · '+(p.hand==='R'?'RHP':'LHP')+'</div>';
+    det.ars.forEach(function(a){if(!a.comp)return;
+      h+='<div class="comp"><div><span style="color:'+ptColor(a.pt)+'">'+a.pt+'</span> <span class="mut">'+fmt(a.velo)+' mph</span><div class="dim" style="font-size:11.5px;margin-top:2px">most like <b style="color:var(--txt)">'+a.comp.n+'</b></div></div><div class="m">'+a.comp.s+'</div></div>';
+    });
+    el('cOut').innerHTML=h;
+  });
 }
 
-/* ---------- heat explorer ---------- */
+/* ---- heat explorer ---- */
 var heatMode='d';
 function buildHeat(){
-  var opts=P.filter(function(p){return p.arsenal.some(function(a){return a.heat;});});
-  function fill(q){el('hList').innerHTML=opts.filter(function(p){return !q||p.name.toLowerCase().indexOf(q)>=0||cleanTeam(p.team).toLowerCase().indexOf(q)>=0;}).slice(0,300).map(function(p){return '<option value="'+p.name+'|'+p.team+'">'+p.name+' · '+cleanTeam(p.team)+'</option>';}).join('');}
-  fill('');
-  el('hSearch').oninput=function(){fill(this.value.toLowerCase().trim());};
-  el('hList').onchange=function(){renderHeat(this.value);};
-  el('hMetric').querySelectorAll('button').forEach(function(b){b.onclick=function(){
-    el('hMetric').querySelectorAll('button').forEach(function(x){x.classList.remove('on');});b.classList.add('on');heatMode=b.getAttribute('data-m');renderHeat(el('hList').value);};});
-  renderHeat(opts.length?opts[0].name+'|'+opts[0].team:'');
+  var opts=P.slice().sort(function(a,b){return a.name.localeCompare(b.name);});
+  function fill(q){el('hList').innerHTML=opts.filter(function(p){return !q||p.name.toLowerCase().indexOf(q)>=0||p.tn.toLowerCase().indexOf(q)>=0;}).slice(0,400).map(function(p){return '<option value="'+p.i+'">'+p.name+' · '+p.tn+'</option>';}).join('');}
+  fill('');el('hSearch').oninput=function(){fill(this.value.toLowerCase().trim());};
+  el('hList').onchange=function(){renderHeat(+this.value);};
+  el('hMetric').querySelectorAll('button').forEach(function(b){b.onclick=function(){el('hMetric').querySelectorAll('button').forEach(function(x){x.classList.remove('on');});b.classList.add('on');heatMode=b.getAttribute('data-m');renderHeat(+el('hList').value);};});
+  renderHeat(P.filter(function(p){return p.n>=150;}).sort(function(a,b){return b.stuff-a.stuff;})[0].i);
 }
-function renderHeat(key){
-  var p=findP(key);if(!p)return;
-  el('heatNote').textContent='— '+p.name+', '+cleanTeam(p.team);
-  var heats=p.arsenal.filter(function(a){return a.heat;});
-  el('heatWrap').innerHTML=heats.map(function(a){
-    var G=heatMode==='d'?a.heat.d:a.heat.w;
-    return '<div class="heatcard"><div class="ht" style="color:'+ptColor(a.pt)+'">'+a.pt+' <span class="dim mono" style="font-size:10px">'+a.n+'</span></div>'+svgHeat(G,heatMode)+'</div>';
-  }).join('');
+function renderHeat(i){
+  var p=P[i];if(!p)return;el('heatNote').textContent='— '+p.name+', '+p.tn;el('heatWrap').innerHTML='<div class="mut mono">Loading…</div>';
+  getDetail(p).then(function(det){
+    var heats=det.ars.filter(function(a){return a.heat;});
+    el('heatWrap').innerHTML=heats.map(function(a){var G=heatMode==='d'?a.heat.d:a.heat.w;return '<div class="heatcard"><div class="ht" style="color:'+ptColor(a.pt)+'">'+a.pt+' <span class="dim mono" style="font-size:10px">'+a.n+'</span></div>'+svgHeat(G,heatMode)+'</div>';}).join('');
+  });
+}
+
+/* ---- global search ---- */
+function buildSearch(){
+  var gs=el('gsearch'),sg=el('gsug');
+  gs.oninput=function(){var q=this.value.toLowerCase().trim();if(!q){sg.style.display='none';return;}
+    var r=P.filter(function(p){return p.name.toLowerCase().indexOf(q)>=0||p.tn.toLowerCase().indexOf(q)>=0;}).slice(0,8);
+    if(!r.length){sg.style.display='none';return;}
+    sg.innerHTML=r.map(function(p){return '<div data-i="'+p.i+'">'+p.name+' <span class="dim">· '+p.tn+'</span></div>';}).join('');sg.style.display='';
+    sg.querySelectorAll('div').forEach(function(d){d.onclick=function(){gs.value='';sg.style.display='none';openPitcher(+d.getAttribute('data-i'));};});};
+  document.addEventListener('click',function(e){var sc=document.querySelector('.search');if(sc&&!sc.contains(e.target))sg.style.display='none';});
 }
 </script>
 </body>
