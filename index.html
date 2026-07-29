@@ -259,7 +259,8 @@ document.body.addEventListener('click',function(e){var t=e.target.closest('[data
 fetch('index.json').then(function(r){return r.json();}).then(function(d){
   IX=d;P=d.pitchers;TEAMS=d.teams;
   P.forEach(function(p){if(SHARDBASE[p.shard]===undefined)SHARDBASE[p.shard]=p.i;
-    if(RBASE[p.rshard]===undefined)RBASE[p.rshard]=p.i;});
+    if(RBASE[p.rshard]===undefined)RBASE[p.rshard]=p.i;
+    var ci=p.name.indexOf(', ');if(ci>0)p.name=p.name.slice(ci+2)+' '+p.name.slice(0,ci);});
   el('loader').style.display='none';boot();
 }).catch(function(e){el('loadtxt').textContent='Failed to load: '+e;});
 
