@@ -89,6 +89,7 @@ tr:last-child td{border-bottom:none}
 </style>
 </head>
 <body>
+<div id="hmtip" style="position:fixed;z-index:100;pointer-events:none;display:none;background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:6px 10px;font-family:var(--mono);font-size:11.5px;color:var(--txt);box-shadow:0 6px 20px rgba(0,0,0,.5)"></div>
 <div id="loader"><div class="spin"></div><div class="mono mut" id="loadtxt">Loading TrackMan database…</div></div>
 <div class="app">
   <aside class="side">
@@ -220,10 +221,10 @@ tr:last-child td{border-bottom:none}
         <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
           <input id="hSearch" class="sel" style="min-width:220px" placeholder="Search pitcher…">
           <select id="hList" class="sel" style="min-width:240px"></select>
-          <div class="seg" id="hMetric"><button class="on" data-m="d">Density</button><button data-m="w">Whiff%</button></div>
+          <div class="seg" id="hMetric"><button class="on" data-m="d">Density</button><button data-m="w">Whiff%</button><button data-m="cmd">Command+</button><button data-m="baa">BAA</button><button data-m="woba">wOBA</button><button data-m="iso">ISO</button></div>
         </div>
         <div class="heatwrap" id="heatWrap"></div>
-        <div class="legend"><span>Cold</span><div class="legbar"></div><span>Hot</span><span class="dim" id="heatNote"></span></div>
+        <div class="legend"><span id="legLo">Cold</span><div class="legbar"></div><span id="legHi">Hot</span><span class="dim" id="heatNote"></span><span class="dim" style="margin-left:auto">Hover a cell for its value</span></div>
       </div>
     </section>
 
@@ -527,21 +528,57 @@ function buildHeat(){
   el('hMetric').querySelectorAll('button').forEach(function(b){b.onclick=function(){el('hMetric').querySelectorAll('button').forEach(function(x){x.classList.remove('on');});b.classList.add('on');heatMode=b.getAttribute('data-m');renderHeat(+el('hList').value);};});
   renderHeat(P.filter(function(p){return p.n>=150;}).sort(function(a,b){return b.stuff-a.stuff;})[0].i);
 }
-function gridFromReport(rep,pt,mode){
+function av(x){return (x/1000).toFixed(3).replace(/^0/,'').replace(/^-0/,'-');}
+function perTypeCells(rep,pt,mode){
   var XL=-1.7,XR=1.7,YB=1.0,YT=4.0,d=[],sw=[],wh=[],i;for(i=0;i<49;i++){d.push(0);sw.push(0);wh.push(0);}var any=0;
   for(var k=0;k<rep.px.length;k++){if(PTIDX[rep.pt[k]]!==pt)continue;var x=rep.px[k],y=rep.py[k];if(x===NA||y===NA)continue;x/=10;y/=10;
     if(x<XL||x>XR||y<YB||y>YT)continue;var ci=Math.min(6,Math.floor((x-XL)/(XR-XL)*7)),ri=Math.min(6,Math.floor((YT-y)/(YT-YB)*7)),idx=ri*7+ci;
     d[idx]++;any++;var pc=rep.pc[k];if(pc>=2){sw[idx]++;if(pc===2)wh[idx]++;}}
-  if(any<6)return null;
-  if(mode==='w')return wh.map(function(w,j){return sw[j]>=2?Math.round(100*w/sw[j]):-1;});
-  var mx=0;for(i=0;i<49;i++)mx=Math.max(mx,d[i]);return d.map(function(v){return Math.round(100*v/(mx||1));});
+  if(any<6)return null;var mx=Math.max.apply(null,d)||1;
+  var sd=smooth(reshape(d.map(function(v){return v;}),'d')); var sdf=[];for(i=0;i<7;i++)for(var j=0;j<7;j++)sdf.push(sd[i][j]);
+  var smx=Math.max.apply(null,sdf)||1;
+  var cells=[];for(i=0;i<49;i++){
+    if(mode==='d'){cells.push({v:sdf[i]/smx,t:'Pitches: '+d[i]});}
+    else{if(sw[i]<2){cells.push(null);}else{var r=wh[i]/sw[i];cells.push({v:r,t:'Whiff '+Math.round(100*r)+'% ('+sw[i]+' swings)'});}}
+  }
+  return cells;
 }
+function metricCells(oc,mode){
+  var arr=oc[mode==='cmd'?'cmd':mode],cells=[];
+  for(var i=0;i<49;i++){var v=arr[i];
+    if(mode==='cmd'){if(v===-9999){cells.push(null);continue;}cells.push({v:(v-70)/70,t:'Command+ '+v+' · '+oc.n[i]+' pit'});}
+    else{if(v===-1){cells.push(null);continue;}var f=v/1000,norm=mode==='baa'?f/0.5:mode==='woba'?f/0.65:f/0.4;
+      cells.push({v:norm,t:(mode==='baa'?'BAA ':mode==='woba'?'wOBA ':'ISO ')+av(v)+' · '+oc.n[i]+' pit'});}
+  }
+  return cells;
+}
+function cellsSVG(cells){
+  var R=7,C=7,W=180,H=205,cw=W/C,ch=H/R,ox=12,oy=8;
+  var s='<svg width="'+(W+2*ox)+'" height="'+(H+32)+'">';
+  for(var y=0;y<R;y++)for(var x=0;x<C;x++){var c=cells[y*7+x];if(!c)continue;
+    s+='<rect class="hcell" data-t="'+c.t+'" x="'+(ox+x*cw).toFixed(1)+'" y="'+(oy+y*ch).toFixed(1)+'" width="'+(cw+.6).toFixed(1)+'" height="'+(ch+.6).toFixed(1)+'" fill="'+ramp(Math.max(0,Math.min(1,c.v)))+'" opacity="0.92" style="cursor:crosshair"/>';}
+  var zx=ox+cw*1,zy=oy+ch*0.6,zw=cw*5,zh=ch*5.2;
+  s+='<rect x="'+zx.toFixed(1)+'" y="'+zy.toFixed(1)+'" width="'+zw.toFixed(1)+'" height="'+zh.toFixed(1)+'" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.3" pointer-events="none"/>';
+  s+='<line x1="'+(zx+zw/3).toFixed(1)+'" y1="'+zy.toFixed(1)+'" x2="'+(zx+zw/3).toFixed(1)+'" y2="'+(zy+zh).toFixed(1)+'" stroke="rgba(255,255,255,.18)" pointer-events="none"/><line x1="'+(zx+2*zw/3).toFixed(1)+'" y1="'+zy.toFixed(1)+'" x2="'+(zx+2*zw/3).toFixed(1)+'" y2="'+(zy+zh).toFixed(1)+'" stroke="rgba(255,255,255,.18)" pointer-events="none"/><line x1="'+zx.toFixed(1)+'" y1="'+(zy+zh/3).toFixed(1)+'" x2="'+(zx+zw).toFixed(1)+'" y2="'+(zy+zh/3).toFixed(1)+'" stroke="rgba(255,255,255,.18)" pointer-events="none"/><line x1="'+zx.toFixed(1)+'" y1="'+(zy+2*zh/3).toFixed(1)+'" x2="'+(zx+zw).toFixed(1)+'" y2="'+(zy+2*zh/3).toFixed(1)+'" stroke="rgba(255,255,255,.18)" pointer-events="none"/>';
+  var pcx=ox+W/2,py=oy+H+7,pw=32;
+  s+='<path d="M'+(pcx-pw/2)+' '+py+' L'+(pcx+pw/2)+' '+py+' L'+(pcx+pw/2)+' '+(py+8)+' L'+pcx+' '+(py+15)+' L'+(pcx-pw/2)+' '+(py+8)+' Z" fill="rgba(255,255,255,.10)" stroke="rgba(255,255,255,.5)" stroke-width="1.1" pointer-events="none"/>';
+  return s+'</svg>';
+}
+function heatcard(title,color,cells){return '<div class="heatcard"><div class="ht" style="color:'+color+'">'+title+'</div>'+cellsSVG(cells)+'</div>';}
+function setLeg(m){var L={d:['Fewer','More'],w:['Low','High'],cmd:['Poor','Elite'],baa:['Low','High'],woba:['Low','High'],iso:['Low','High']}[m]||['Cold','Hot'];el('legLo').textContent=L[0];el('legHi').textContent=L[1];}
+function labelFor(m){return {cmd:'Command+',baa:'BAA',woba:'wOBA',iso:'ISO'}[m];}
+function wireHover(){var tip=el('hmtip');
+  document.querySelectorAll('#heatWrap .hcell').forEach(function(r){
+    r.addEventListener('mousemove',function(e){tip.textContent=r.getAttribute('data-t');tip.style.display='block';tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY+14)+'px';});
+    r.addEventListener('mouseleave',function(){tip.style.display='none';});});}
 function renderHeat(i){
   var p=P[i];if(!p)return;el('heatNote').textContent='— '+p.name+', '+p.tn;el('heatWrap').innerHTML='<div class="mut mono">Loading…</div>';
-  getReport(p).then(function(rep){
-    var pts=rep.stbl.map(function(r){return r.pt;});
-    el('heatWrap').innerHTML=pts.map(function(pt){var G=gridFromReport(rep,pt,heatMode);return G?'<div class="heatcard"><div class="ht" style="color:'+ptColor(pt)+'">'+pt+'</div>'+svgHeat(G,heatMode)+'</div>':'';}).join('');
-  });
+  getReport(p).then(function(rep){var m=heatMode;setLeg(m);
+    if(m==='d'||m==='w'){var pts=rep.stbl.map(function(r){return r.pt;});
+      el('heatWrap').innerHTML=pts.map(function(pt){var c=perTypeCells(rep,pt,m);return c?heatcard(pt,ptColor(pt),c):'';}).join('');
+    }else{var oc=rep.oc;if(!oc){el('heatWrap').innerHTML='<div class="mut mono">No location outcome data</div>';return;}
+      el('heatWrap').innerHTML=heatcard(labelFor(m)+' — all pitches','var(--acc)',metricCells(oc,m));}
+    wireHover();});
 }
 
 /* ---- global search ---- */
