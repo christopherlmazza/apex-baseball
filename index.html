@@ -191,7 +191,7 @@ tr:last-child td{border-bottom:none}
       <h2 class="sec">Stuff+ &amp; Command+</h2>
       <p class="sub">Pitch-quality models — 100 = average, ±10 = one standard deviation.</p>
       <div class="grid2" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
-        <div class="card"><div class="pill">STUFF+</div><p style="color:var(--mut);margin:10px 0 0">Grades raw nastiness from velocity, movement, spin, and velo separation. Calibrated against <b style="color:var(--txt)">FanGraphs' 2025 MLB Stuff+</b> — within-pitch-type correlation ≈ 0.6 (4-Seam 0.59, Changeup 0.67, Slider 0.63), then normalized so D1 average = 100.</p></div>
+        <div class="card"><div class="pill">STUFF+</div><p style="color:var(--mut);margin:10px 0 0">Grades raw nastiness from velocity, movement, spin, and velo separation. Calibrated against <b style="color:var(--txt)">FanGraphs' 2025 MLB Stuff+</b> (154 arms) — within-pitch-type correlation up to ~0.6 (Slider 0.61, 4-Seam 0.55, Changeup 0.50, Sinker 0.43), then normalized so D1 average = 100.</p></div>
         <div class="card"><div class="pill" style="border-color:rgba(106,139,255,.4);color:var(--acc2)">COMMAND+</div><p style="color:var(--mut);margin:10px 0 0">Grades location quality — how often pitches land in valuable, low-damage spots for the count. Built from real plate-location tracking, normalized so D1 average = 100.</p></div>
       </div>
       <div class="panel"><h3><i class="ti ti-trophy"></i> Top overall Stuff+ (150+ pitches)</h3>
@@ -232,7 +232,7 @@ tr:last-child td{border-bottom:none}
       <h2 class="sec">About APEX</h2><p class="sub">What's under the hood.</p>
       <div class="panel" style="max-width:780px">
         <p style="color:var(--mut);margin-bottom:14px">APEX runs on raw TrackMan pitch tracking from the 2026 NCAA Division I season — every pitch classified, aggregated by arm, and turned into arsenal profiles, models, MLB comps, heatmaps and outing reports.</p>
-        <p style="color:var(--mut);margin-bottom:14px"><b style="color:var(--txt)">Stuff+ &amp; Command+</b> are calibrated against FanGraphs' 2025 MLB Stuff+ (within-pitch-type r≈0.6) and normalized so 100 = D1 average, ±10 = one SD. Curveball/sinker/sweeper sub-models carry more noise due to smaller MLB training samples.</p>
+        <p style="color:var(--mut);margin-bottom:14px"><b style="color:var(--txt)">Stuff+ &amp; Command+</b> are calibrated against FanGraphs' 2025 MLB Stuff+ (154 arms) and normalized so 100 = D1 average, ±10 = one SD. Sliders, four-seams, changeups and sinkers validate well (within-type r ≈ 0.43–0.61); curveball stuff is the hardest to reproduce from public data (FanGraphs uses proprietary spin-axis inputs), and sweepers are scored with the validated slider model.</p>
         <p style="color:var(--mut);margin-bottom:14px"><b style="color:var(--txt)">MLB comps</b> match each pitch to the nearest 2025 Statcast MLB pitch of the same type and handedness by velocity and movement.</p>
         <p style="color:var(--dim);font-size:12.5px" id="aboutMeta"></p>
       </div>
