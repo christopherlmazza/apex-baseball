@@ -218,11 +218,19 @@ tr:last-child td{border-bottom:none}
       <h2 class="sec">Heatmap explorer</h2>
       <p class="sub">Catcher's view — real pitch locations, red (hot) to blue (cold), with the strike zone and home plate drawn in.</p>
       <div class="panel">
-        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-          <input id="hSearch" class="sel" style="min-width:220px" placeholder="Search pitcher…">
-          <select id="hList" class="sel" style="min-width:240px"></select>
-          <div class="seg" id="hMetric"><button class="on" data-m="d">Density</button><button data-m="w">Whiff%</button><button data-m="cmd">Command+</button><button data-m="baa">BAA</button><button data-m="woba">wOBA</button><button data-m="iso">ISO</button></div>
+        <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+          <input id="hSearch" class="sel" style="min-width:200px" placeholder="Search pitcher…">
+          <select id="hList" class="sel" style="min-width:230px"></select>
+          <div class="seg" id="hHand"><button class="on" data-h="all">All</button><button data-h="R">vs RHB</button><button data-h="L">vs LHB</button></div>
+          <select id="hCount" class="sel">
+            <option value="all">All counts</option><option value="ba">Batter ahead</option><option value="pa">Pitcher ahead</option><option value="nu">Even counts</option>
+            <option value="0-0">0-0</option><option value="0-1">0-1</option><option value="0-2">0-2</option>
+            <option value="1-0">1-0</option><option value="1-1">1-1</option><option value="1-2">1-2</option>
+            <option value="2-0">2-0</option><option value="2-1">2-1</option><option value="2-2">2-2</option>
+            <option value="3-0">3-0</option><option value="3-1">3-1</option><option value="3-2">3-2</option>
+          </select>
         </div>
+        <div style="margin-bottom:16px"><div class="seg" id="hMetric"><button class="on" data-m="d">Density</button><button data-m="w">Whiff%</button><button data-m="cmd">Command+</button><button data-m="baa">BAA</button><button data-m="woba">wOBA</button><button data-m="iso">ISO</button></div></div>
         <div class="heatwrap" id="heatWrap"></div>
         <div class="legend"><span id="legLo">Cold</span><div class="legbar"></div><span id="legHi">Hot</span><span class="dim" id="heatNote"></span><span class="dim" style="margin-left:auto">Hover a cell for its value</span></div>
       </div>
@@ -525,31 +533,46 @@ function buildHeat(){
   function fill(q){el('hList').innerHTML=opts.filter(function(p){return !q||p.name.toLowerCase().indexOf(q)>=0||p.tn.toLowerCase().indexOf(q)>=0;}).slice(0,400).map(function(p){return '<option value="'+p.i+'">'+p.name+' · '+p.tn+'</option>';}).join('');}
   fill('');el('hSearch').oninput=function(){fill(this.value.toLowerCase().trim());};
   el('hList').onchange=function(){renderHeat(+this.value);};
-  el('hMetric').querySelectorAll('button').forEach(function(b){b.onclick=function(){el('hMetric').querySelectorAll('button').forEach(function(x){x.classList.remove('on');});b.classList.add('on');heatMode=b.getAttribute('data-m');renderHeat(+el('hList').value);};});
+  el('hMetric').querySelectorAll('button').forEach(function(b){b.onclick=function(){el('hMetric').querySelectorAll('button').forEach(function(x){x.classList.remove('on');});b.classList.add('on');heatMode=b.getAttribute('data-m');renderHeat();};});
+  el('hHand').querySelectorAll('button').forEach(function(b){b.onclick=function(){el('hHand').querySelectorAll('button').forEach(function(x){x.classList.remove('on');});b.classList.add('on');heatHand=b.getAttribute('data-h');renderHeat();};});
+  el('hCount').onchange=function(){heatCount=this.value;renderHeat();};
   renderHeat(P.filter(function(p){return p.n>=150;}).sort(function(a,b){return b.stuff-a.stuff;})[0].i);
 }
-function av(x){return (x/1000).toFixed(3).replace(/^0/,'').replace(/^-0/,'-');}
-function perTypeCells(rep,pt,mode){
-  var XL=-1.7,XR=1.7,YB=1.0,YT=4.0,d=[],sw=[],wh=[],i;for(i=0;i<49;i++){d.push(0);sw.push(0);wh.push(0);}var any=0;
-  for(var k=0;k<rep.px.length;k++){if(PTIDX[rep.pt[k]]!==pt)continue;var x=rep.px[k],y=rep.py[k];if(x===NA||y===NA)continue;x/=10;y/=10;
-    if(x<XL||x>XR||y<YB||y>YT)continue;var ci=Math.min(6,Math.floor((x-XL)/(XR-XL)*7)),ri=Math.min(6,Math.floor((YT-y)/(YT-YB)*7)),idx=ri*7+ci;
-    d[idx]++;any++;var pc=rep.pc[k];if(pc>=2){sw[idx]++;if(pc===2)wh[idx]++;}}
-  if(any<6)return null;var mx=Math.max.apply(null,d)||1;
-  var sd=smooth(reshape(d.map(function(v){return v;}),'d')); var sdf=[];for(i=0;i<7;i++)for(var j=0;j<7;j++)sdf.push(sd[i][j]);
-  var smx=Math.max.apply(null,sdf)||1;
-  var cells=[];for(i=0;i<49;i++){
-    if(mode==='d'){cells.push({v:sdf[i]/smx,t:'Pitches: '+d[i]});}
-    else{if(sw[i]<2){cells.push(null);}else{var r=wh[i]/sw[i];cells.push({v:r,t:'Whiff '+Math.round(100*r)+'% ('+sw[i]+' swings)'});}}
+function av(x){return x.toFixed(3).replace(/^0\./,'.').replace(/^-0\./,'-.');}
+var CMD_LM=0.0065,CMD_LS=0.032;
+function pitchVal(pc,tm){if(pc===1)return 0.06;if(pc===2)return 0.11;if(pc===3)return 0.02;if(pc===0)return -0.055;if(pc===5)return -0.10;
+  if(pc===4){if(tm===1)return 0.045;if(tm===2)return -0.10;if(tm===3)return -0.20;if(tm===4)return -0.28;if(tm===5)return -0.42;}return 0;}
+var TBv={2:1,3:2,4:3,5:4},WN={1:0,2:0.883,3:1.244,4:1.569,5:2.004,6:0.69,7:0.72,8:0};
+function passCount(ct,cnt){if(cnt==='all')return true;var b=Math.floor(ct/3),s=ct%3;
+  if(cnt==='ba')return b-s>=1;if(cnt==='pa')return s-b>=1;if(cnt==='nu')return b===s;
+  return b===+cnt[0]&&s===+cnt[2];}
+function computeCells(rep,pt,mode,hand,cnt){
+  var XL=-1.7,XR=1.7,YB=1.0,YT=4.0,i;
+  var d=[],sw=[],wh=[],cv=[],cn=[],ab=[],h=[],tb=[],wn=[],wd=[];
+  for(i=0;i<49;i++){d.push(0);sw.push(0);wh.push(0);cv.push(0);cn.push(0);ab.push(0);h.push(0);tb.push(0);wn.push(0);wd.push(0);}
+  var tot=0;
+  for(var k=0;k<rep.px.length;k++){
+    if(PTIDX[rep.pt[k]]!==pt)continue;
+    if(hand==='R'&&rep.bs[k]!==1)continue; if(hand==='L'&&rep.bs[k]!==0)continue;
+    if(!passCount(rep.ct[k],cnt))continue;
+    var x=rep.px[k],y=rep.py[k];if(x===NA||y===NA)continue;x/=10;y/=10;
+    if(x<XL||x>XR||y<YB||y>YT)continue;
+    var ci=Math.min(6,Math.floor((x-XL)/(XR-XL)*7)),ri=Math.min(6,Math.floor((YT-y)/(YT-YB)*7)),idx=ri*7+ci;
+    tot++;var pc=rep.pc[k],tm=rep.tm[k];
+    d[idx]++;cv[idx]+=pitchVal(pc,tm);cn[idx]++;
+    if(pc>=2&&pc<=4){sw[idx]++;if(pc===2)wh[idx]++;}
+    if(tm>=1){wd[idx]++;wn[idx]+=(WN[tm]||0);
+      if(tm!==6&&tm!==7){ab[idx]++;if(tm>=2&&tm<=5){h[idx]++;tb[idx]+=TBv[tm];}}}
   }
-  return cells;
-}
-function metricCells(oc,mode){
-  var arr=oc[mode==='cmd'?'cmd':mode],cells=[];
-  for(var i=0;i<49;i++){var v=arr[i];
-    if(mode==='cmd'){if(v===-9999){cells.push(null);continue;}cells.push({v:(v-70)/70,t:'Command+ '+v+' · '+oc.n[i]+' pit'});}
-    else{if(v===-1){cells.push(null);continue;}var f=v/1000,norm=mode==='baa'?f/0.5:mode==='woba'?f/0.65:f/0.4;
-      cells.push({v:norm,t:(mode==='baa'?'BAA ':mode==='woba'?'wOBA ':'ISO ')+av(v)+' · '+oc.n[i]+' pit'});}
-  }
+  if(tot<4)return null;
+  var cells=[],mx;
+  if(mode==='d'){var sd=smooth(reshape(d.slice(),'d')),sdf=[];for(i=0;i<7;i++)for(var j=0;j<7;j++)sdf.push(sd[i][j]);var smx=Math.max.apply(null,sdf)||1;
+    for(i=0;i<49;i++)cells.push({v:sdf[i]/smx,t:'Pitches: '+d[i]});}
+  else if(mode==='w'){for(i=0;i<49;i++){if(sw[i]<2){cells.push(null);}else{var r=wh[i]/sw[i];cells.push({v:r,t:'Whiff '+Math.round(100*r)+'% · '+sw[i]+' sw'});}}}
+  else if(mode==='cmd'){for(i=0;i<49;i++){if(cn[i]<3){cells.push(null);}else{var cp=Math.round(100+10*((cv[i]/cn[i]-CMD_LM)/CMD_LS));cp=Math.max(40,Math.min(160,cp));cells.push({v:(cp-70)/70,t:'Command+ '+cp+' · '+cn[i]+' pit'});}}}
+  else if(mode==='baa'){for(i=0;i<49;i++){if(ab[i]<2){cells.push(null);}else{var b=h[i]/ab[i];cells.push({v:b/0.5,t:'BAA '+av(b)+' · '+ab[i]+' AB'});}}}
+  else if(mode==='woba'){for(i=0;i<49;i++){if(wd[i]<2){cells.push(null);}else{var wv=wn[i]/wd[i];cells.push({v:wv/0.65,t:'wOBA '+av(wv)+' · '+wd[i]+' PA'});}}}
+  else{for(i=0;i<49;i++){if(ab[i]<2){cells.push(null);}else{var iv=(tb[i]-h[i])/ab[i];cells.push({v:iv/0.4,t:'ISO '+av(iv)+' · '+ab[i]+' AB'});}}}
   return cells;
 }
 function cellsSVG(cells){
@@ -566,18 +589,18 @@ function cellsSVG(cells){
 }
 function heatcard(title,color,cells){return '<div class="heatcard"><div class="ht" style="color:'+color+'">'+title+'</div>'+cellsSVG(cells)+'</div>';}
 function setLeg(m){var L={d:['Fewer','More'],w:['Low','High'],cmd:['Poor','Elite'],baa:['Low','High'],woba:['Low','High'],iso:['Low','High']}[m]||['Cold','Hot'];el('legLo').textContent=L[0];el('legHi').textContent=L[1];}
-function labelFor(m){return {cmd:'Command+',baa:'BAA',woba:'wOBA',iso:'ISO'}[m];}
 function wireHover(){var tip=el('hmtip');
   document.querySelectorAll('#heatWrap .hcell').forEach(function(r){
     r.addEventListener('mousemove',function(e){tip.textContent=r.getAttribute('data-t');tip.style.display='block';tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY+14)+'px';});
     r.addEventListener('mouseleave',function(){tip.style.display='none';});});}
+var heatHand='all',heatCount='all',heatPI=null;
 function renderHeat(i){
-  var p=P[i];if(!p)return;el('heatNote').textContent='— '+p.name+', '+p.tn;el('heatWrap').innerHTML='<div class="mut mono">Loading…</div>';
+  if(i!=null)heatPI=i;var p=P[heatPI];if(!p)return;
+  el('heatNote').textContent='— '+p.name+', '+p.tn;el('heatWrap').innerHTML='<div class="mut mono">Loading…</div>';
   getReport(p).then(function(rep){var m=heatMode;setLeg(m);
-    if(m==='d'||m==='w'){var pts=rep.stbl.map(function(r){return r.pt;});
-      el('heatWrap').innerHTML=pts.map(function(pt){var c=perTypeCells(rep,pt,m);return c?heatcard(pt,ptColor(pt),c):'';}).join('');
-    }else{var oc=rep.oc;if(!oc){el('heatWrap').innerHTML='<div class="mut mono">No location outcome data</div>';return;}
-      el('heatWrap').innerHTML=heatcard(labelFor(m)+' — all pitches','var(--acc)',metricCells(oc,m));}
+    var pts=rep.stbl.map(function(r){return r.pt;});
+    var html=pts.map(function(pt){var c=computeCells(rep,pt,m,heatHand,heatCount);return c?heatcard(pt,ptColor(pt),c):'';}).join('');
+    el('heatWrap').innerHTML=html||'<div class="mut mono" style="padding:20px">No pitches match this filter.</div>';
     wireHover();});
 }
 
