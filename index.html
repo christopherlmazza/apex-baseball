@@ -72,6 +72,20 @@ tr:last-child td{border-bottom:none}
 .seg button.on{background:var(--acc);color:#04121a}
 .comp{display:flex;align-items:center;justify-content:space-between;padding:12px 15px;border:1px solid var(--line);border-radius:12px;margin-bottom:9px;background:var(--panel2)}
 .comp .m{font-family:var(--disp);font-size:20px;font-weight:700;color:var(--acc)}
+.dnatop{margin-bottom:16px}
+.dnatop .dnacard{max-width:560px;margin:0 auto;border-color:var(--acc)}
+.dnagrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(238px,1fr));gap:14px}
+.dnacard{border:1px solid var(--line);border-radius:14px;background:var(--panel2);padding:14px}
+.dnahead{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px}
+.dnaname{font-family:var(--disp);font-weight:700;font-size:15px;line-height:1.15}
+.dnasub{color:var(--mut);font-size:11px;margin-top:3px}
+.mbadge{font-family:var(--disp);font-weight:700;font-size:19px;color:var(--acc);background:rgba(61,245,192,.08);border:1px solid var(--line);border-radius:10px;padding:3px 9px;white-space:nowrap}
+.mrank{font-size:9px;letter-spacing:.08em;color:var(--mut);display:block;text-align:right;margin-top:2px}
+.dnatab{width:100%;font-size:11px;margin-top:6px;border-collapse:collapse}
+.dnatab th{color:var(--mut);text-align:right;font-weight:600;padding:3px 5px}
+.dnatab td{text-align:right;padding:3px 5px;border-top:1px solid var(--line)}
+.dnatab th:first-child,.dnatab td:first-child{text-align:left}
+.dnatab .dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle}
 .legend{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--mut);margin-top:14px}
 .legbar{height:10px;width:150px;border-radius:6px;background:linear-gradient(90deg,#2f6df0,#7aa0e8,#e9edf4,#f0a15a,#e5342e)}
 .heatwrap{display:flex;flex-wrap:wrap;gap:16px}
@@ -201,16 +215,14 @@ tr:last-child td{border-bottom:none}
 
     <!-- COMPS -->
     <section data-p="comps">
-      <h2 class="sec">MLB comps</h2>
-      <p class="sub">Every college pitch matched to its closest 2025 MLB pitch shape (velocity, iVB, horizontal break, by hand).</p>
-      <div class="grid2" style="align-items:start">
-        <div class="panel">
-          <h3><i class="ti ti-target"></i> Pick a pitcher</h3>
-          <input id="cSearch" class="sel" style="width:100%;margin-bottom:10px" placeholder="Search pitcher…">
-          <select id="cList" class="sel" size="14" style="width:100%"></select>
-        </div>
-        <div class="panel"><h3><i class="ti ti-arrows-shuffle"></i> Closest MLB arms</h3><div id="cOut"></div></div>
+      <h2 class="sec">Arsenal DNA — MLB comps</h2>
+      <p class="sub">Whole-arsenal similarity — pitch mix &amp; usage, velo, movement and spin. Top-3 MLB arms (2024–25, ≥500 pitches, same hand).</p>
+      <div class="panel" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+        <i class="ti ti-target" style="color:var(--acc)"></i>
+        <input id="cSearch" class="sel" style="flex:1;min-width:200px" placeholder="Search a college arm…">
+        <select id="cList" class="sel" style="flex:1.4;min-width:240px"></select>
       </div>
+      <div id="cOut"></div>
     </section>
 
     <!-- HEATMAPS -->
@@ -507,22 +519,53 @@ function buildModels(){
   wireRows('mdBody');
 }
 
-/* ---- comps ---- */
+/* ---- comps (Arsenal DNA) ---- */
+var MLBW=null,PAB={'4-Seam':'FB','Sinker':'SI','Cutter':'FC','Slider':'SL','Sweeper':'ST','Slurve':'SV','Curveball':'CU','Changeup':'CH','Splitter':'FS','Knuckleball':'KN'};
+function loadMLB(){if(MLBW)return Promise.resolve(MLBW);return fetch('mlb_web.json').then(function(r){return r.json();}).then(function(d){MLBW=d;return d;});}
+function fmtName(n){var ci=n.indexOf(', ');return ci>0?n.slice(ci+2)+' '+n.slice(0,ci):n;}
+function abbr(pt){return PAB[pt]||pt.slice(0,2);}
+function svgArsenal(ars){
+  var W=250,H=230,pad=22,L=-24,U=24;
+  function sx(v){return pad+(v-L)/(U-L)*(W-2*pad);}
+  function sy(v){return H-pad-(v-L)/(U-L)*(H-2*pad);}
+  var s='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:270px;display:block;margin:0 auto">';
+  s+='<line x1="'+sx(0).toFixed(1)+'" y1="'+pad+'" x2="'+sx(0).toFixed(1)+'" y2="'+(H-pad)+'" stroke="var(--line)"/>';
+  s+='<line x1="'+pad+'" y1="'+sy(0).toFixed(1)+'" x2="'+(W-pad)+'" y2="'+sy(0).toFixed(1)+'" stroke="var(--line)"/>';
+  s+='<text x="'+(W-pad)+'" y="'+(sy(0)-4).toFixed(1)+'" text-anchor="end" font-size="8" fill="var(--mut)">HB →</text>';
+  s+='<text x="'+(sx(0)+4).toFixed(1)+'" y="'+(pad+7)+'" font-size="8" fill="var(--mut)">↑ iVB</text>';
+  ars.forEach(function(a){if(a.hb==null||a.ivb==null)return;var x=sx(Math.max(L,Math.min(U,a.hb))),y=sy(Math.max(L,Math.min(U,a.ivb))),c=ptColor(a.pt),r=6+Math.sqrt(Math.max(a.usage||0,1))*0.9;
+    s+='<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="'+r.toFixed(1)+'" fill="'+c+'" opacity="0.85"/>';
+    s+='<text x="'+x.toFixed(1)+'" y="'+(y+3).toFixed(1)+'" text-anchor="middle" font-size="8" font-weight="700" fill="#0a1020">'+abbr(a.pt)+'</text>';});
+  return s+'</svg>';
+}
+function arsTable(ars){
+  var h='<table class="dnatab"><thead><tr><th>Pitch</th><th>Use</th><th>Velo</th><th>iVB</th><th>HB</th><th>Spin</th></tr></thead><tbody>';
+  ars.forEach(function(a){h+='<tr><td><span class="dot" style="background:'+ptColor(a.pt)+'"></span>'+a.pt+'</td><td>'+Math.round(a.usage||0)+'%</td><td>'+fmt(a.velo)+'</td><td>'+fmt(a.ivb)+'</td><td>'+fmt(a.hb)+'</td><td>'+(a.spin||'—')+'</td></tr>';});
+  return h+'</tbody></table>';
+}
+function dnaCard(name,sub,badge,rank,ars){
+  var b=badge!=null?'<div style="text-align:right"><div class="mbadge">'+badge+'</div>'+(rank?'<span class="mrank">'+rank+'</span>':'')+'</div>':'';
+  return '<div class="dnacard"><div class="dnahead"><div><div class="dnaname">'+name+'</div><div class="dnasub">'+sub+'</div></div>'+b+'</div>'+svgArsenal(ars)+arsTable(ars)+'</div>';
+}
 function buildComps(){
   var opts=P.slice().sort(function(a,b){return a.name.localeCompare(b.name);});
   function fill(q){el('cList').innerHTML=opts.filter(function(p){return !q||p.name.toLowerCase().indexOf(q)>=0||p.tn.toLowerCase().indexOf(q)>=0;}).slice(0,400).map(function(p){return '<option value="'+p.i+'">'+p.name+' · '+p.tn+'</option>';}).join('');}
   fill('');el('cSearch').oninput=function(){fill(this.value.toLowerCase().trim());};
   el('cList').onchange=function(){renderComp(+this.value);};
-  renderComp(P.filter(function(p){return p.n>=150;}).sort(function(a,b){return b.stuff-a.stuff;})[0].i);
+  renderComp(P.filter(function(p){return p.n>=150&&p.c3&&p.c3.length;}).sort(function(a,b){return b.stuff-a.stuff;})[0].i);
 }
 function renderComp(i){
   var p=P[i];if(!p)return;el('cOut').innerHTML='<div class="mut mono">Loading…</div>';
-  getDetail(p).then(function(det){
-    var h='<div class="mut" style="margin-bottom:12px"><b style="color:var(--txt)">'+p.name+'</b> · '+p.tn+' · '+(p.hand==='R'?'RHP':'LHP')+'</div>';
-    det.ars.forEach(function(a){if(!a.comp)return;
-      h+='<div class="comp"><div><span style="color:'+ptColor(a.pt)+'">'+a.pt+'</span> <span class="mut">'+fmt(a.velo)+' mph</span><div class="dim" style="font-size:11.5px;margin-top:2px">most like <b style="color:var(--txt)">'+a.comp.n+'</b></div></div><div class="m">'+a.comp.s+'</div></div>';
-    });
-    el('cOut').innerHTML=h;
+  Promise.all([getDetail(p),loadMLB()]).then(function(a){
+    var det=a[0],flip=(p.hand==='R'?1:-1);
+    var cars=det.ars.map(function(x){return {pt:x.pt,usage:x.usage,velo:x.velo,ivb:x.ivb,hb:(x.hb==null?null:flip*x.hb),spin:x.spin};}).filter(function(x){return (x.usage||0)>=3;});
+    var relTxt=p.hand==='R'?'RHP':'LHP';if(p.rh)relTxt+=' · '+p.rh+' ft release';
+    var top='<div class="dnatop">'+dnaCard(p.name,p.tn+' · '+relTxt,null,null,cars)+'</div>';
+    var ranks=['#1 MATCH','#2 MATCH','#3 MATCH'];
+    var cards=(p.c3||[]).map(function(c,idx){var m=MLBW[c[0]];if(!m)return '';
+      var sub=m.team+' · '+(m.hand==='R'?'RHP':'LHP')+(m.relh?' · '+m.relh+' ft':'');
+      return dnaCard(fmtName(m.name),sub,c[1],ranks[idx],m.ars);}).join('');
+    el('cOut').innerHTML=top+(cards?'<div class="dnagrid">'+cards+'</div>':'<div class="mut">No qualifying comp found.</div>');
   });
 }
 
