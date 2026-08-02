@@ -558,13 +558,16 @@ function renderComp(i){
   var p=P[i];if(!p)return;el('cOut').innerHTML='<div class="mut mono">Loading…</div>';
   Promise.all([getDetail(p),loadMLB()]).then(function(a){
     var det=a[0];
-    var cars=det.ars.map(function(x){return {pt:x.pt,usage:x.usage,velo:x.velo,ivb:x.ivb,hb:x.hb,spin:x.spin};}).filter(function(x){return (x.usage||0)>=3;});
+    // DISPLAY orientation: show lefties in true LHP view (mirror HB). Matching stays arm-side-normalized.
+    var vflip=(p.hand==='R'?1:-1);
+    function fx(ars){return ars.map(function(x){return {pt:x.pt,usage:x.usage,velo:x.velo,ivb:x.ivb,hb:(x.hb==null?null:vflip*x.hb),spin:x.spin};});}
+    var cars=fx(det.ars).filter(function(x){return (x.usage||0)>=3;});
     var relTxt=p.hand==='R'?'RHP':'LHP';if(p.rh)relTxt+=' · '+p.rh+' ft release';
     var top='<div class="dnatop">'+dnaCard(p.name,p.tn+' · '+relTxt,null,null,cars)+'</div>';
     var ranks=['#1 MATCH','#2 MATCH','#3 MATCH'];
     var cards=(p.c3||[]).map(function(c,idx){var m=MLBW[c[0]];if(!m)return '';
       var sub=m.team+' · '+(m.hand==='R'?'RHP':'LHP')+(m.relh?' · '+m.relh+' ft':'');
-      return dnaCard(fmtName(m.name),sub,c[1],ranks[idx],m.ars);}).join('');
+      return dnaCard(fmtName(m.name),sub,c[1],ranks[idx],fx(m.ars));}).join('');
     el('cOut').innerHTML=top+(cards?'<div class="dnagrid">'+cards+'</div>':'<div class="mut">No qualifying comp found.</div>');
   });
 }
