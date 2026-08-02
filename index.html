@@ -277,7 +277,7 @@ function show(id){for(var k in panels)panels[k].classList.toggle('show',k===id);
   document.querySelectorAll('#nav a').forEach(function(a){a.classList.toggle('on',a.getAttribute('data-go')===id);});window.scrollTo(0,0);}
 document.body.addEventListener('click',function(e){var t=e.target.closest('[data-go]');if(t)show(t.getAttribute('data-go'));});
 
-fetch('index.json?v=4').then(function(r){return r.json();}).then(function(d){
+fetch('index.json?v=5').then(function(r){return r.json();}).then(function(d){
   IX=d;P=d.pitchers;TEAMS=d.teams;
   P.forEach(function(p){if(SHARDBASE[p.shard]===undefined)SHARDBASE[p.shard]=p.i;
     if(RBASE[p.rshard]===undefined)RBASE[p.rshard]=p.i;
@@ -286,9 +286,9 @@ fetch('index.json?v=4').then(function(r){return r.json();}).then(function(d){
 }).catch(function(e){el('loadtxt').textContent='Failed to load: '+e;});
 
 function getDetail(p){if(SHARDCACHE[p.shard])return Promise.resolve(SHARDCACHE[p.shard][p.i-SHARDBASE[p.shard]]);
-  return fetch('p'+p.shard+'.json?v=4').then(function(r){return r.json();}).then(function(arr){SHARDCACHE[p.shard]=arr;return arr[p.i-SHARDBASE[p.shard]];});}
+  return fetch('p'+p.shard+'.json?v=5').then(function(r){return r.json();}).then(function(arr){SHARDCACHE[p.shard]=arr;return arr[p.i-SHARDBASE[p.shard]];});}
 function getReport(p){if(RCACHE[p.rshard])return Promise.resolve(RCACHE[p.rshard][p.i-RBASE[p.rshard]]);
-  return fetch('r'+p.rshard+'.json?v=4').then(function(r){return r.json();}).then(function(arr){RCACHE[p.rshard]=arr;return arr[p.i-RBASE[p.rshard]];});}
+  return fetch('r'+p.rshard+'.json?v=5').then(function(r){return r.json();}).then(function(arr){RCACHE[p.rshard]=arr;return arr[p.i-RBASE[p.rshard]];});}
 
 function boot(){
   var m=IX.meta;
@@ -521,7 +521,7 @@ function buildModels(){
 
 /* ---- comps (Arsenal DNA) ---- */
 var MLBW=null,PAB={'4-Seam':'FB','Sinker':'SI','Cutter':'FC','Slider':'SL','Sweeper':'ST','Slurve':'SV','Curveball':'CU','Changeup':'CH','Splitter':'FS','Knuckleball':'KN'};
-function loadMLB(){if(MLBW)return Promise.resolve(MLBW);return fetch('mlb_web.json?v=4').then(function(r){return r.json();}).then(function(d){MLBW=d;return d;});}
+function loadMLB(){if(MLBW)return Promise.resolve(MLBW);return fetch('mlb_web.json?v=5').then(function(r){return r.json();}).then(function(d){MLBW=d;return d;});}
 function fmtName(n){var ci=n.indexOf(', ');return ci>0?n.slice(ci+2)+' '+n.slice(0,ci):n;}
 function abbr(pt){return PAB[pt]||pt.slice(0,2);}
 function svgArsenal(ars){
