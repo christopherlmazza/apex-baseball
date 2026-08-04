@@ -797,14 +797,15 @@ function buildTunnel(){
 }
 function tnRenderCustomList(){el('cbList').innerHTML=TUN.custom.map(function(p,i){return '<span class="tnchip" style="border-color:'+ptColor(p.pt)+'"><span class="dot" style="background:'+ptColor(p.pt)+'"></span>'+p.pt+' '+p.velo+' <a onclick="tnDelCustom('+i+')">×</a></span>';}).join('');}
 function tnDelCustom(i){TUN.custom.splice(i,1);TUN.pitches=TUN.custom;TUN.pair=TUN.pitches.length>=2?[0,1]:null;tnRenderCustomList();tnRenderAll();}
-function tnPlate(rep,pti){var sx=0,sy=0,n=0,H=[];for(var i=0;i<64;i++)H.push(0);
-  for(var k=0;k<rep.px.length;k++){if(rep.pt[k]!==pti)continue;var x=rep.px[k],y=rep.py[k];if(x===NA||y===NA)continue;x/=10;y/=10;sx+=x;sy+=y;n++;var cx=Math.floor((x+2)/4*8),cy=Math.floor((y-0.5)/4*8);if(cx>=0&&cx<8&&cy>=0&&cy<8)H[cy*8+cx]++;}
-  if(n<15)return null;for(i=0;i<64;i++)H[i]/=n;return {px:sx/n,pz:sy/n,n:n,hist:H};}
+function tnPlate(rep,pti){var sx=0,sy=0,rs=0,rh=0,rn=0,n=0,H=[];for(var i=0;i<64;i++)H.push(0);
+  for(var k=0;k<rep.px.length;k++){if(rep.pt[k]!==pti)continue;var x=rep.px[k],y=rep.py[k];if(x===NA||y===NA)continue;x/=10;y/=10;sx+=x;sy+=y;n++;var cx=Math.floor((x+2)/4*8),cy=Math.floor((y-0.5)/4*8);if(cx>=0&&cx<8&&cy>=0&&cy<8)H[cy*8+cx]++;
+    if(rep.rs[k]!==NA&&rep.rh[k]!==NA){rs+=rep.rs[k]/100;rh+=rep.rh[k]/100;rn++;}}
+  if(n<15)return null;for(i=0;i<64;i++)H[i]/=n;return {px:sx/n,pz:sy/n,rels:rn?rs/rn:0,relh:rn?rh/rn:6,n:n,hist:H};}
 function tnLoadReal(i){var p=P[i];if(!p)return;TUN.mode='real';el('tnOut').innerHTML='<div class="mut mono">Loading…</div>';
   Promise.all([getDetail(p),getReport(p)]).then(function(a){var det=a[0],rep=a[1];
     var pits=[];det.ars.forEach(function(ar){var pti=PTIDX.indexOf(ar.pt);if(pti<0)return;var pl=tnPlate(rep,pti);if(!pl)return;
-      if(ar.rels==null||ar.relh==null||ar.ivb==null||ar.hb==null)return;
-      pits.push({pt:ar.pt,velo:ar.velo,ivb:ar.ivb,hb:ar.hb,rels:ar.rels,relh:ar.relh,ext:ar.ext||6.2,px:pl.px,pz:pl.pz,hist:pl.hist,usage:ar.usage});});
+      if(ar.ivb==null||ar.hb==null||ar.velo==null)return;
+      pits.push({pt:ar.pt,velo:ar.velo,ivb:ar.ivb,hb:ar.hb,rels:pl.rels,relh:pl.relh,ext:ar.ext||6.2,px:pl.px,pz:pl.pz,hist:pl.hist,usage:ar.usage});});
     pits.sort(function(x,y){return y.usage-x.usage;});
     TUN.pitches=pits;TUN.title=p.name+' · '+p.tn+' · '+(p.hand==='R'?'RHP':'LHP');
     TUN.pair=pits.length>=2?[0,1]:null;TUN.sel=null;tnRenderAll();});
