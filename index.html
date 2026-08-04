@@ -837,28 +837,35 @@ function tnCol(s){return s>=75?'#3df5c0':s>=55?'#9be15d':s>=40?'#f5d33d':'#ff8f5
 function tnRenderVisual(){
   var panel=el('tnVizPanel');if(!panel||!TUN.pair)return;var ps=TUN.pitches,a=ps[TUN.pair[0]],b=ps[TUN.pair[1]];if(!a||!b)return;
   var r=tnScore(a,b);
-  var W=460,H=440,pad=24,TOP=52,BOT=34,PH=H-TOP-BOT,XL=-2.8,XR=2.8,ZB=0.2,ZT=7.0;
-  function sx(x){return pad+(x-XL)/(XR-XL)*(W-2*pad);}function sy(z){return TOP+(ZT-z)/(ZT-ZB)*PH;}
-  TUN.tf={W:W,H:H,pad:pad,TOP:TOP,PH:PH,XL:XL,XR:XR,ZB:ZB,ZT:ZT};
+  // perspective camera behind the plate (true catcher POV): far points (release) converge to center, near (plate) spread out
+  var W=460,H=430,FOC=260,CAMY=2.5,CAMZ=2.6,CX=W/2,CY=196;
+  function pj(x,z,y){var dy=y+CAMZ;return [CX+FOC*x/dy, CY-FOC*(z-CAMY)/dy];}
+  TUN.tf={W:W,H:H,FOC:FOC,CAMY:CAMY,CAMZ:CAMZ,CX:CX,CY:CY};
   var ta=tnTraj(a),tb=tnTraj(b),s='<svg id="tnSvg" viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:520px;display:block;margin:0 auto;touch-action:none;cursor:crosshair">';
-  // strike zone + plate
-  s+='<rect x="'+sx(-0.83).toFixed(1)+'" y="'+sy(3.5).toFixed(1)+'" width="'+(sx(0.83)-sx(-0.83)).toFixed(1)+'" height="'+(sy(1.6)-sy(3.5)).toFixed(1)+'" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.2"/>';
-  var pcx=sx(0),ppy=sy(0.55);s+='<path d="M'+(pcx-24)+' '+ppy+' L'+(pcx+24)+' '+ppy+' L'+(pcx+24)+' '+(ppy+9)+' L'+pcx+' '+(ppy+18)+' L'+(pcx-24)+' '+(ppy+9)+' Z" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.4)"/>';
-  // trajectories
-  function path(tr){var d='';for(var y=tr.D0;y>=0;y-=1.2){var p=tnPos(tr,y);d+=(d?'L':'M')+sx(p[0]).toFixed(1)+' '+sy(p[1]).toFixed(1)+' ';}return d;}
-  s+='<path d="'+path(ta)+'" fill="none" stroke="'+ptColor(a.pt)+'" stroke-width="2.6" opacity="0.9" stroke-linecap="round"/>';
-  s+='<path d="'+path(tb)+'" fill="none" stroke="'+ptColor(b.pt)+'" stroke-width="2.6" opacity="0.9" stroke-linecap="round"/>';
+  // strike zone (projected at plate depth)
+  var zc=[[-0.83,3.5],[0.83,3.5],[0.83,1.6],[-0.83,1.6]].map(function(c){return pj(c[0],c[1],0);});
+  s+='<polygon points="'+zc.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ')+'" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.2"/>';
+  for(var g=1;g<=2;g++){var xg=-0.83+g*1.66/3,zg=1.6+g*1.9/3,v1=pj(xg,3.5,0),v2=pj(xg,1.6,0),h1=pj(-0.83,zg,0),h2=pj(0.83,zg,0);
+    s+='<line x1="'+v1[0].toFixed(1)+'" y1="'+v1[1].toFixed(1)+'" x2="'+v2[0].toFixed(1)+'" y2="'+v2[1].toFixed(1)+'" stroke="rgba(255,255,255,.12)"/><line x1="'+h1[0].toFixed(1)+'" y1="'+h1[1].toFixed(1)+'" x2="'+h2[0].toFixed(1)+'" y2="'+h2[1].toFixed(1)+'" stroke="rgba(255,255,255,.12)"/>';}
+  var hp=[[-0.71,0.2,0.2],[0.71,0.2,0.2],[0.71,0.2,0.95],[0,0.2,1.45],[-0.71,0.2,0.95]].map(function(c){return pj(c[0],c[1],c[2]);});
+  s+='<polygon points="'+hp.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ')+'" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.35)"/>';
+  // trajectories (release → plate)
+  function path(tr){var d='';for(var y=tr.D0;y>=-0.01;y-=1.5){var yy=Math.max(0,y),p=tnPos(tr,yy),q=pj(p[0],p[1],yy);d+=(d?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)+' ';}return d;}
+  s+='<path d="'+path(ta)+'" fill="none" stroke="'+ptColor(a.pt)+'" stroke-width="2.8" opacity="0.92" stroke-linecap="round"/>';
+  s+='<path d="'+path(tb)+'" fill="none" stroke="'+ptColor(b.pt)+'" stroke-width="2.8" opacity="0.92" stroke-linecap="round"/>';
+  var ra=pj(ta.rx,ta.rz,ta.D0),rb=pj(tb.rx,tb.rz,tb.D0);
+  s+='<circle cx="'+ra[0].toFixed(1)+'" cy="'+ra[1].toFixed(1)+'" r="2.4" fill="'+ptColor(a.pt)+'"/><circle cx="'+rb[0].toFixed(1)+'" cy="'+rb[1].toFixed(1)+'" r="2.4" fill="'+ptColor(b.pt)+'"/>';
+  s+='<text x="'+((ra[0]+rb[0])/2).toFixed(1)+'" y="'+((ra[1]+rb[1])/2-7).toFixed(1)+'" fill="var(--dim)" font-size="8.5" text-anchor="middle">release</text>';
   // decision window (23 ft)
-  if(TUN.dec){var pa=tnPos(ta,23),pb=tnPos(tb,23),mx=(sx(pa[0])+sx(pb[0]))/2,my=(sy(pa[1])+sy(pb[1]))/2;
-    var bw=Math.max(30,Math.abs(sx(pa[0])-sx(pb[0]))+26),bh=Math.max(26,Math.abs(sy(pa[1])-sy(pb[1]))+22);
-    s+='<rect x="'+(mx-bw/2).toFixed(1)+'" y="'+(my-bh/2).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+bh.toFixed(1)+'" rx="6" fill="none" stroke="rgba(245,211,61,.5)" stroke-dasharray="4 3"/>';
-    s+='<line x1="'+sx(pa[0]).toFixed(1)+'" y1="'+sy(pa[1]).toFixed(1)+'" x2="'+sx(pb[0]).toFixed(1)+'" y2="'+sy(pb[1]).toFixed(1)+'" stroke="rgba(245,211,61,.7)" stroke-width="1.4" stroke-dasharray="3 3"/>';
-    s+='<circle cx="'+sx(pa[0]).toFixed(1)+'" cy="'+sy(pa[1]).toFixed(1)+'" r="3" fill="'+ptColor(a.pt)+'"/><circle cx="'+sx(pb[0]).toFixed(1)+'" cy="'+sy(pb[1]).toFixed(1)+'" r="3" fill="'+ptColor(b.pt)+'"/>';
-    s+='<text x="'+(mx).toFixed(1)+'" y="'+(my-bh/2-5).toFixed(1)+'" fill="#f5d33d" font-size="11" font-weight="700" text-anchor="middle">'+r.tun.toFixed(1)+'″ @ 23 ft</text>';}
+  if(TUN.dec){var pa0=tnPos(ta,23),pb0=tnPos(tb,23),pa=pj(pa0[0],pa0[1],23),pb=pj(pb0[0],pb0[1],23);
+    var mx=(pa[0]+pb[0])/2,my=(pa[1]+pb[1])/2,bw=Math.max(24,Math.abs(pa[0]-pb[0])+20),bh=Math.max(20,Math.abs(pa[1]-pb[1])+18);
+    s+='<rect x="'+(mx-bw/2).toFixed(1)+'" y="'+(my-bh/2).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+bh.toFixed(1)+'" rx="6" fill="none" stroke="rgba(245,211,61,.55)" stroke-dasharray="4 3"/>';
+    s+='<line x1="'+pa[0].toFixed(1)+'" y1="'+pa[1].toFixed(1)+'" x2="'+pb[0].toFixed(1)+'" y2="'+pb[1].toFixed(1)+'" stroke="rgba(245,211,61,.75)" stroke-width="1.4" stroke-dasharray="3 3"/>';
+    s+='<text x="'+mx.toFixed(1)+'" y="'+(my-bh/2-5).toFixed(1)+'" fill="#f5d33d" font-size="11" font-weight="700" text-anchor="middle">'+r.tun.toFixed(1)+'″ @ 23 ft</text>';}
   // plate dots (movable)
-  var da=[sx(ta.px),sy(ta.pz)],db=[sx(tb.px),sy(tb.pz)];
+  var da=pj(ta.px,ta.pz,0),db=pj(tb.px,tb.pz,0);
   s+='<line x1="'+da[0].toFixed(1)+'" y1="'+da[1].toFixed(1)+'" x2="'+db[0].toFixed(1)+'" y2="'+db[1].toFixed(1)+'" stroke="rgba(255,255,255,.5)" stroke-dasharray="3 3"/>';
-  s+='<text x="'+((da[0]+db[0])/2).toFixed(1)+'" y="'+((da[1]+db[1])/2-8).toFixed(1)+'" fill="var(--txt)" font-size="11" font-weight="700" text-anchor="middle">'+r.plate.toFixed(1)+'″ @ plate</text>';
+  s+='<text x="'+((da[0]+db[0])/2).toFixed(1)+'" y="'+((da[1]+db[1])/2+20).toFixed(1)+'" fill="var(--txt)" font-size="11" font-weight="700" text-anchor="middle">'+r.plate.toFixed(1)+'″ @ plate</text>';
   [[da,a,TUN.pair[0]],[db,b,TUN.pair[1]]].forEach(function(o){var d=o[0],pp=o[1],idx=o[2];
     if(TUN.sel===idx)s+='<circle cx="'+d[0].toFixed(1)+'" cy="'+d[1].toFixed(1)+'" r="11" fill="none" stroke="#fff" stroke-width="1.5"/>';
     s+='<circle class="tndot" data-i="'+idx+'" cx="'+d[0].toFixed(1)+'" cy="'+d[1].toFixed(1)+'" r="7.5" fill="'+ptColor(pp.pt)+'" stroke="#0b1220" stroke-width="1.4" style="cursor:pointer"/>';});
@@ -866,7 +873,7 @@ function tnRenderVisual(){
   s+='<rect x="'+(W/2-70)+'" y="10" width="140" height="30" rx="15" fill="'+tnCol(r.score)+'" opacity="0.16" stroke="'+tnCol(r.score)+'"/>';
   s+='<text x="'+(W/2)+'" y="30" fill="'+tnCol(r.score)+'" font-size="15" font-weight="800" text-anchor="middle">Tunnel: '+r.score+'</text>';
   s+='<text x="'+(W/2)+'" y="48" fill="var(--mut)" font-size="10" text-anchor="middle">Δ '+r.dmph.toFixed(1)+' mph · ratio '+r.ratio.toFixed(1)+'×'+(r.ov!=null?' · overlap '+Math.round(r.ov*100)+'%':'')+'</text>';
-  s+='<text x="12" y="'+(TOP-6)+'" fill="var(--dim)" font-size="8.5">Catcher’s view</text>';
+  s+='<text x="12" y="'+(H-8)+'" fill="var(--dim)" font-size="8.5">Catcher’s view</text>';
   panel.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div><span class="dot" style="background:'+ptColor(a.pt)+'"></span> '+a.pt+' '+fmt(a.velo)+' · '+fmt(a.ivb)+'″iVB '+fmt(a.hb)+'″HB &nbsp; <span class="dot" style="background:'+ptColor(b.pt)+'"></span> '+b.pt+' '+fmt(b.velo)+'</div></div>'+s+'</svg>';
   wireTunnel();
 }
@@ -874,7 +881,7 @@ function wireTunnel(){var svg=el('tnSvg');if(!svg)return;
   svg.querySelectorAll('.tndot').forEach(function(c){c.addEventListener('click',function(e){e.stopPropagation();TUN.sel=+c.getAttribute('data-i');tnRenderVisual();});});
   svg.addEventListener('click',function(e){if(TUN.sel==null)return;var tf=TUN.tf,rect=svg.getBoundingClientRect(),sc=rect.width/tf.W;
     var lx=(e.clientX-rect.left)/sc,ly=(e.clientY-rect.top)/sc;
-    var xcv=tf.XL+(lx-tf.pad)/(tf.W-2*tf.pad)*(tf.XR-tf.XL),z=tf.ZT-(ly-tf.TOP)/tf.PH*(tf.ZT-tf.ZB);
+    var xcv=(lx-tf.CX)*tf.CAMZ/tf.FOC, z=tf.CAMY-(ly-tf.CY)*tf.CAMZ/tf.FOC;
     var p=TUN.pitches[TUN.sel];p.px=Math.max(-2,Math.min(2,-xcv));p.pz=Math.max(0.8,Math.min(4.2,z));tnRenderAll();});
 }
 /* ---- global search ---- */
