@@ -418,18 +418,31 @@ function svgLoc(rep,gi,side){
   return s+'</svg>';}
 function svgMove(rep,gi){
   var S=250,ox=34,oy=8,R=25;function sx(v){return ox+(v+R)/(2*R)*S;}function sy(v){return oy+(R-v)/(2*R)*S;}
-  var s='<svg width="'+(S+ox+8)+'" height="'+(S+oy+24)+'">';
+  var s='<svg width="'+(S+ox+8)+'" height="'+(S+oy+40)+'">';
   s+='<line x1="'+sx(0)+'" y1="'+oy+'" x2="'+sx(0)+'" y2="'+(oy+S)+'" stroke="rgba(255,255,255,.15)"/><line x1="'+ox+'" y1="'+sy(0)+'" x2="'+(ox+S)+'" y2="'+sy(0)+'" stroke="rgba(255,255,255,.15)"/>';
-  for(var g=-20;g<=20;g+=10){s+='<line x1="'+sx(g)+'" y1="'+oy+'" x2="'+sx(g)+'" y2="'+(oy+S)+'" stroke="rgba(255,255,255,.05)"/><line x1="'+ox+'" y1="'+sy(g)+'" x2="'+(ox+S)+'" y2="'+sy(g)+'" stroke="rgba(255,255,255,.05)"/>';}
+  for(var g=-20;g<=20;g+=10){
+    s+='<line x1="'+sx(g)+'" y1="'+oy+'" x2="'+sx(g)+'" y2="'+(oy+S)+'" stroke="rgba(255,255,255,.05)"/><line x1="'+ox+'" y1="'+sy(g)+'" x2="'+(ox+S)+'" y2="'+sy(g)+'" stroke="rgba(255,255,255,.05)"/>';
+    s+='<text x="'+(ox-5)+'" y="'+(sy(g)+3).toFixed(1)+'" fill="var(--dim)" font-size="9" text-anchor="end">'+g+'</text>';
+    s+='<text x="'+sx(g).toFixed(1)+'" y="'+(oy+S+13)+'" fill="var(--dim)" font-size="9" text-anchor="middle">'+g+'</text>';}
   for(var k=0;k<rep.hb.length;k++){if(gi!=null&&rep.gi[k]!==gi)continue;var hb=rep.hb[k],iv=rep.ivb[k];if(hb===NA||iv===NA)continue;s+='<circle cx="'+sx(hb/10).toFixed(1)+'" cy="'+sy(iv/10).toFixed(1)+'" r="3" fill="'+ptColor(PTIDX[rep.pt[k]])+'" opacity="0.72"/>';}
-  s+='<text x="'+ox+'" y="'+(oy+S+18)+'" fill="var(--dim)" font-size="10">← Glove</text><text x="'+(ox+S-46)+'" y="'+(oy+S+18)+'" fill="var(--dim)" font-size="10">Arm →</text>';
+  s+='<text x="'+(ox-5)+'" y="'+(oy+7)+'" fill="var(--dim)" font-size="9" text-anchor="end">iVB″</text>';
+  s+='<text x="'+ox+'" y="'+(oy+S+30)+'" fill="var(--dim)" font-size="10">← Glove</text><text x="'+(ox+S-52)+'" y="'+(oy+S+30)+'" fill="var(--dim)" font-size="10">HB″ · Arm →</text>';
   return s+'</svg>';}
 function svgRel(rep,gi){
   var W=210,H=210,ox=30,oy=8,XL=-1.2,XR=3.2,YB=3.5,YT=7.2;
   function sx(v){return ox+(v-XL)/(XR-XL)*W;}function sy(v){return oy+(YT-v)/(YT-YB)*H;}
-  var s='<svg width="'+(W+ox+8)+'" height="'+(H+24)+'">';
-  s+='<line x1="'+sx(0)+'" y1="'+oy+'" x2="'+sx(0)+'" y2="'+(oy+H)+'" stroke="rgba(255,255,255,.12)"/>';
-  for(var k=0;k<rep.rs.length;k++){if(gi!=null&&rep.gi[k]!==gi)continue;var rs=rep.rs[k],rh=rep.rh[k];if(rs===NA||rh===NA)continue;s+='<circle cx="'+sx(rs/100).toFixed(1)+'" cy="'+sy(rh/100).toFixed(1)+'" r="2.6" fill="'+ptColor(PTIDX[rep.pt[k]])+'" opacity="0.6"/>';}
+  var s='<svg width="'+(W+ox+8)+'" height="'+(H+40)+'">';
+  [-1,0,1,2,3].forEach(function(v){s+='<line x1="'+sx(v).toFixed(1)+'" y1="'+oy+'" x2="'+sx(v).toFixed(1)+'" y2="'+(oy+H)+'" stroke="rgba(255,255,255,'+(v===0?'.15':'.05')+')"/>';
+    s+='<text x="'+sx(v).toFixed(1)+'" y="'+(oy+H+13)+'" fill="var(--dim)" font-size="9" text-anchor="middle">'+v+'</text>';});
+  [4,5,6,7].forEach(function(v){s+='<line x1="'+ox+'" y1="'+sy(v).toFixed(1)+'" x2="'+(ox+W)+'" y2="'+sy(v).toFixed(1)+'" stroke="rgba(255,255,255,.05)"/>';
+    s+='<text x="'+(ox-5)+'" y="'+(sy(v)+3).toFixed(1)+'" fill="var(--dim)" font-size="9" text-anchor="end">'+v+'</text>';});
+  var agg={};
+  for(var k=0;k<rep.rs.length;k++){if(gi!=null&&rep.gi[k]!==gi)continue;var rs=rep.rs[k],rh=rep.rh[k];if(rs===NA||rh===NA)continue;var pti=rep.pt[k];var a=agg[pti]||(agg[pti]={x:0,y:0,n:0});a.x+=rs/100;a.y+=rh/100;a.n++;}
+  Object.keys(agg).forEach(function(pti){var a=agg[pti];if(a.n<3)return;var nm=PTIDX[+pti],col=ptColor(nm),cx=sx(a.x/a.n),cy=sy(a.y/a.n);
+    s+='<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="6.5" fill="'+col+'" opacity="0.92" stroke="#0b1220" stroke-width="1.2"/>';
+    s+='<text x="'+(cx+9).toFixed(1)+'" y="'+(cy+3.5).toFixed(1)+'" fill="'+col+'" font-size="9.5" font-weight="700">'+abbr(nm)+'</text>';});
+  s+='<text x="'+(ox-5)+'" y="'+(oy+7)+'" fill="var(--dim)" font-size="9" text-anchor="end">ft</text>';
+  s+='<text x="'+(ox+W/2)+'" y="'+(oy+H+30)+'" fill="var(--dim)" font-size="10" text-anchor="middle">Release side (ft)</text>';
   return s+'</svg>';}
 function svgVelo(rep){
   var pts=[];PTIDX.forEach(function(pt,i){var vs=[];for(var k=0;k<rep.ve.length;k++){if(rep.pt[k]===i&&rep.ve[k]!==NA)vs.push(rep.ve[k]/10);}if(vs.length>=8)pts.push([pt,vs]);});
