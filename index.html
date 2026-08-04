@@ -86,6 +86,16 @@ tr:last-child td{border-bottom:none}
 .dnatab td{text-align:right;padding:3px 5px;border-top:1px solid var(--line)}
 .dnatab th:first-child,.dnatab td:first-child{text-align:left}
 .dnatab .dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.tntab{width:100%;font-size:12px;border-collapse:collapse}
+.tntab th{color:var(--mut);text-align:right;font-weight:600;padding:5px 7px}
+.tntab td{text-align:right;padding:5px 7px;border-top:1px solid var(--line)}
+.tntab th:first-child,.tntab td:first-child{text-align:left}
+.tnrow{cursor:pointer}.tnrow:hover{background:var(--panel2)}.tnrow.selrow{background:rgba(61,245,192,.08)}
+.tnchip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:8px;padding:4px 9px;font-size:12px}
+.tnchip a{cursor:pointer;color:var(--mut);font-weight:700;margin-left:2px}
+#tnMode button.on{background:var(--acc);color:#0a1020}
+#tnDec.on{border-color:var(--acc);color:var(--acc)}
 .legend{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--mut);margin-top:14px}
 .legbar{height:10px;width:150px;border-radius:6px;background:linear-gradient(90deg,#2f6df0,#7aa0e8,#e9edf4,#f0a15a,#e5342e)}
 .heatwrap{display:flex;flex-wrap:wrap;gap:16px}
@@ -118,6 +128,7 @@ tr:last-child td{border-bottom:none}
       <a data-go="models"><i class="ti ti-chart-dots"></i> Stuff+ / Command+</a>
       <a data-go="comps"><i class="ti ti-arrows-shuffle"></i> MLB comps</a>
       <a data-go="heat"><i class="ti ti-grid-dots"></i> Heatmaps</a>
+      <a data-go="tunnel"><i class="ti ti-tournament"></i> Tunneling</a>
       <span class="lbl">Info</span>
       <a data-go="about"><i class="ti ti-info-circle"></i> About</a>
     </nav>
@@ -249,6 +260,34 @@ tr:last-child td{border-bottom:none}
     </section>
 
     <!-- ABOUT -->
+    <section data-p="tunnel">
+      <h2 class="sec">Pitch Tunneling</h2>
+      <p class="sub">Track A geometry — how alike a pitch pair looks at the <b style="color:var(--txt)">23 ft decision point</b>, and how far they separate at the plate. Higher tunnel score = more deceptive.</p>
+      <div class="panel" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+        <div id="tnMode" style="display:flex;gap:6px"><button class="btn on" data-mode="real" style="padding:8px 13px">Select pitcher</button><button class="btn ghost" data-mode="custom" style="padding:8px 13px">Build your own</button></div>
+        <div id="tnRealPick" style="display:flex;gap:10px;flex:1;min-width:240px">
+          <input id="tnSearch" class="sel" style="flex:1;min-width:150px" placeholder="Search a college arm…">
+          <select id="tnList" class="sel" style="flex:1.3;min-width:200px"></select>
+        </div>
+        <button id="tnDec" class="btn ghost" style="padding:8px 13px"><i class="ti ti-crosshair"></i> Decision point</button>
+      </div>
+      <div id="tnCustomPanel" class="panel" style="display:none;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3 style="margin:0"><i class="ti ti-plus"></i> Build an arsenal</h3><span class="mut" style="font-size:11.5px">Add pitches, then see how they tunnel</span></div>
+        <div style="display:grid;grid-template-columns:repeat(8,1fr) auto;gap:6px;align-items:end;font-size:11px">
+          <label>Type<select id="cbType" class="sel" style="width:100%"></select></label>
+          <label>Velo<input id="cbVelo" class="sel" type="number" value="92" style="width:100%"></label>
+          <label>iVB<input id="cbIvb" class="sel" type="number" value="16" style="width:100%"></label>
+          <label>HB<input id="cbHb" class="sel" type="number" value="8" style="width:100%"></label>
+          <label>Rel side<input id="cbRs" class="sel" type="number" value="-1.6" step="0.1" style="width:100%"></label>
+          <label>Rel ht<input id="cbRh" class="sel" type="number" value="5.9" step="0.1" style="width:100%"></label>
+          <label>Plate x<input id="cbPx" class="sel" type="number" value="0" step="0.1" style="width:100%"></label>
+          <label>Plate z<input id="cbPz" class="sel" type="number" value="2.6" step="0.1" style="width:100%"></label>
+          <button id="cbAdd" class="btn" style="padding:8px 12px">Add</button>
+        </div>
+        <div id="cbList" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"></div>
+      </div>
+      <div id="tnOut"></div>
+    </section>
     <section data-p="about">
       <h2 class="sec">About APEX</h2><p class="sub">What's under the hood.</p>
       <div class="panel" style="max-width:780px">
@@ -304,7 +343,7 @@ function boot(){
   var lead=P.filter(function(p){return p.n>=150&&p.stuff!=null;}).sort(function(a,b){return b.stuff-a.stuff;}).slice(0,12);
   el('dashLead').innerHTML=lead.map(function(p){return row(p,['name','tn','fb','stuff','comp']);}).join('');
   wireRows('dashLead');
-  buildPitchers();buildLeaders();buildModels();buildComps();buildHeat();buildSearch();
+  buildPitchers();buildLeaders();buildModels();buildComps();buildHeat();buildTunnel();buildSearch();
   show('dash');
 }
 function row(p,cols){
@@ -738,6 +777,105 @@ function renderHeat(i){
     jobs.forEach(function(o){var cv=el(o.id);if(cv){drawHeat(cv,o.d,m);attachHover(cv);}});});
 }
 
+/* ---- pitch tunneling ---- */
+var TUN={mode:'real',pitches:[],pair:null,sel:null,dec:true,tf:null};
+function buildTunnel(){
+  var opts=P.slice().sort(function(a,b){return a.name.localeCompare(b.name);});
+  function fill(q){el('tnList').innerHTML=opts.filter(function(p){return !q||p.name.toLowerCase().indexOf(q)>=0||p.tn.toLowerCase().indexOf(q)>=0;}).slice(0,400).map(function(p){return '<option value="'+p.i+'">'+p.name+' · '+p.tn+'</option>';}).join('');}
+  fill('');el('tnSearch').oninput=function(){fill(this.value.toLowerCase().trim());};
+  el('tnList').onchange=function(){tnLoadReal(+this.value);};
+  el('cbType').innerHTML=['4-Seam','Sinker','Cutter','Slider','Sweeper','Curveball','Changeup','Splitter'].map(function(x){return '<option>'+x+'</option>';}).join('');
+  el('tnMode').querySelectorAll('button').forEach(function(b){b.onclick=function(){TUN.mode=b.getAttribute('data-mode');
+    el('tnMode').querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);x.classList.toggle('ghost',x!==b);});
+    el('tnRealPick').style.display=TUN.mode==='real'?'flex':'none';el('tnCustomPanel').style.display=TUN.mode==='custom'?'block':'none';
+    if(TUN.mode==='custom'){TUN.pitches=TUN.custom||(TUN.custom=[]);TUN.pair=TUN.pitches.length>=2?[0,1]:null;tnRenderAll();}else if(el('tnList').value)tnLoadReal(+el('tnList').value);};});
+  el('tnDec').onclick=function(){TUN.dec=!TUN.dec;this.classList.toggle('on',TUN.dec);tnRenderVisual();};
+  el('tnDec').classList.add('on');
+  el('cbAdd').onclick=function(){var p={pt:el('cbType').value,velo:+el('cbVelo').value,ivb:+el('cbIvb').value,hb:+el('cbHb').value,rels:+el('cbRs').value,relh:+el('cbRh').value,ext:6.2,px:+el('cbPx').value,pz:+el('cbPz').value,hist:null,usage:20};
+    (TUN.custom||(TUN.custom=[])).push(p);TUN.pitches=TUN.custom;if(TUN.pitches.length>=2&&!TUN.pair)TUN.pair=[0,1];tnRenderCustomList();tnRenderAll();};
+  tnLoadReal(P.filter(function(p){return p.n>=200;}).sort(function(a,b){return b.n-a.n;})[0].i);
+}
+function tnRenderCustomList(){el('cbList').innerHTML=TUN.custom.map(function(p,i){return '<span class="tnchip" style="border-color:'+ptColor(p.pt)+'"><span class="dot" style="background:'+ptColor(p.pt)+'"></span>'+p.pt+' '+p.velo+' <a onclick="tnDelCustom('+i+')">×</a></span>';}).join('');}
+function tnDelCustom(i){TUN.custom.splice(i,1);TUN.pitches=TUN.custom;TUN.pair=TUN.pitches.length>=2?[0,1]:null;tnRenderCustomList();tnRenderAll();}
+function tnPlate(rep,pti){var sx=0,sy=0,n=0,H=[];for(var i=0;i<64;i++)H.push(0);
+  for(var k=0;k<rep.px.length;k++){if(rep.pt[k]!==pti)continue;var x=rep.px[k],y=rep.py[k];if(x===NA||y===NA)continue;x/=10;y/=10;sx+=x;sy+=y;n++;var cx=Math.floor((x+2)/4*8),cy=Math.floor((y-0.5)/4*8);if(cx>=0&&cx<8&&cy>=0&&cy<8)H[cy*8+cx]++;}
+  if(n<15)return null;for(i=0;i<64;i++)H[i]/=n;return {px:sx/n,pz:sy/n,n:n,hist:H};}
+function tnLoadReal(i){var p=P[i];if(!p)return;TUN.mode='real';el('tnOut').innerHTML='<div class="mut mono">Loading…</div>';
+  Promise.all([getDetail(p),getReport(p)]).then(function(a){var det=a[0],rep=a[1];
+    var pits=[];det.ars.forEach(function(ar){var pti=PTIDX.indexOf(ar.pt);if(pti<0)return;var pl=tnPlate(rep,pti);if(!pl)return;
+      if(ar.rels==null||ar.relh==null||ar.ivb==null||ar.hb==null)return;
+      pits.push({pt:ar.pt,velo:ar.velo,ivb:ar.ivb,hb:ar.hb,rels:ar.rels,relh:ar.relh,ext:ar.ext||6.2,px:pl.px,pz:pl.pz,hist:pl.hist,usage:ar.usage});});
+    pits.sort(function(x,y){return y.usage-x.usage;});
+    TUN.pitches=pits;TUN.title=p.name+' · '+p.tn+' · '+(p.hand==='R'?'RHP':'LHP');
+    TUN.pair=pits.length>=2?[0,1]:null;TUN.sel=null;tnRenderAll();});
+}
+function tnTraj(p){var D0=60.5-(p.ext||6.2),T=D0/(1.467*p.velo*0.92),HB=-(p.hb||0)/12,IV=(p.ivb||0)/12,rx=-(p.rels||0),rz=p.relh||6,px=-(p.px||0),pz=p.pz||2.5;
+  var ahb=2*HB/(T*T),vx0=(px-rx-HB)/T,aiv=2*IV/(T*T),az=-32.174+aiv,vz0=(pz-rz-0.5*az*T*T)/T;
+  return {D0:D0,T:T,rx:rx,rz:rz,vx0:vx0,ahb:ahb,vz0:vz0,az:az,px:px,pz:pz};}
+function tnPos(tr,y){var t=(1-y/tr.D0)*tr.T;return [tr.rx+tr.vx0*t+0.5*tr.ahb*t*t, tr.rz+tr.vz0*t+0.5*tr.az*t*t];}
+function tnOverlap(h1,h2){if(!h1||!h2)return null;var s=0;for(var i=0;i<64;i++)s+=Math.min(h1[i],h2[i]);return s;}
+function tnScore(a,b){var ta=tnTraj(a),tb=tnTraj(b);var pa=tnPos(ta,23),pb=tnPos(tb,23);
+  var tun=Math.hypot(pa[0]-pb[0],pa[1]-pb[1])*12,plate=Math.hypot(ta.px-tb.px,ta.pz-tb.pz)*12;
+  var ratio=plate/Math.max(tun,0.4),rp=Math.max(0,Math.min(1,(ratio-2)/10)),tp=Math.max(0,Math.min(1,(8-tun)/7));
+  var ov=tnOverlap(a.hist,b.hist),comp=ov!=null?(0.45*rp+0.35*tp+0.20*ov):(0.55*rp+0.45*tp);
+  return {tun:tun,plate:plate,ratio:ratio,score:Math.max(1,Math.min(99,Math.round(100*comp))),dmph:Math.abs(a.velo-b.velo),ov:ov};}
+function tnRenderAll(){
+  var ps=TUN.pitches;
+  if(!ps||ps.length<2){el('tnOut').innerHTML='<div class="mut" style="padding:20px">Need at least two pitch types'+(TUN.mode==='custom'?' — add some above.':'.')+'</div>';return;}
+  var pairs=[];for(var i=0;i<ps.length;i++)for(var j=i+1;j<ps.length;j++){var r=tnScore(ps[i],ps[j]);pairs.push({i:i,j:j,r:r});}
+  pairs.sort(function(a,b){return b.r.score-a.r.score;});
+  if(!TUN.pair)TUN.pair=[pairs[0].i,pairs[0].j];
+  var rows=pairs.map(function(pr){var a=ps[pr.i],b=ps[pr.j],sel=(TUN.pair&&((TUN.pair[0]===pr.i&&TUN.pair[1]===pr.j)||(TUN.pair[0]===pr.j&&TUN.pair[1]===pr.i)));
+    return '<tr class="tnrow'+(sel?' selrow':'')+'" data-i="'+pr.i+'" data-j="'+pr.j+'"><td><span class="dot" style="background:'+ptColor(a.pt)+'"></span>'+abbr(a.pt)+' <span class="mut">×</span> <span class="dot" style="background:'+ptColor(b.pt)+'"></span>'+abbr(b.pt)+'</td><td class="mono" style="color:'+tnCol(pr.r.score)+';font-weight:700">'+pr.r.score+'</td><td class="mono">'+pr.r.tun.toFixed(1)+'″</td><td class="mono">'+pr.r.plate.toFixed(1)+'″</td><td class="mono">'+pr.r.ratio.toFixed(1)+'×</td><td class="mono dim">'+pr.r.dmph.toFixed(1)+'</td></tr>';}).join('');
+  var tbl='<div class="panel"><h3 style="margin:0 0 8px"><i class="ti ti-list"></i> Pitch pairs</h3><div style="overflow:auto"><table class="tntab"><thead><tr><th>Pair</th><th>Tunnel</th><th>@23ft</th><th>@plate</th><th>Ratio</th><th>Δmph</th></tr></thead><tbody>'+rows+'</tbody></table></div><div class="mut" style="font-size:11px;margin-top:8px">Click a pair to visualize. In the plot, click a pitch dot then click to move its plate location.</div></div>';
+  el('tnOut').innerHTML='<div class="grid2" style="align-items:start;grid-template-columns:1fr 1fr"><div class="panel" id="tnVizPanel"></div>'+tbl+'</div>';
+  document.querySelectorAll('#tnOut .tnrow').forEach(function(r){r.onclick=function(){TUN.pair=[+r.getAttribute('data-i'),+r.getAttribute('data-j')];TUN.sel=null;tnRenderAll();};});
+  tnRenderVisual();
+}
+function tnCol(s){return s>=75?'#3df5c0':s>=55?'#9be15d':s>=40?'#f5d33d':'#ff8f5d';}
+function tnRenderVisual(){
+  var panel=el('tnVizPanel');if(!panel||!TUN.pair)return;var ps=TUN.pitches,a=ps[TUN.pair[0]],b=ps[TUN.pair[1]];if(!a||!b)return;
+  var r=tnScore(a,b);
+  var W=460,H=440,pad=24,TOP=52,BOT=34,PH=H-TOP-BOT,XL=-2.8,XR=2.8,ZB=0.2,ZT=7.0;
+  function sx(x){return pad+(x-XL)/(XR-XL)*(W-2*pad);}function sy(z){return TOP+(ZT-z)/(ZT-ZB)*PH;}
+  TUN.tf={W:W,H:H,pad:pad,TOP:TOP,PH:PH,XL:XL,XR:XR,ZB:ZB,ZT:ZT};
+  var ta=tnTraj(a),tb=tnTraj(b),s='<svg id="tnSvg" viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:520px;display:block;margin:0 auto;touch-action:none;cursor:crosshair">';
+  // strike zone + plate
+  s+='<rect x="'+sx(-0.83).toFixed(1)+'" y="'+sy(3.5).toFixed(1)+'" width="'+(sx(0.83)-sx(-0.83)).toFixed(1)+'" height="'+(sy(1.6)-sy(3.5)).toFixed(1)+'" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.2"/>';
+  var pcx=sx(0),ppy=sy(0.55);s+='<path d="M'+(pcx-24)+' '+ppy+' L'+(pcx+24)+' '+ppy+' L'+(pcx+24)+' '+(ppy+9)+' L'+pcx+' '+(ppy+18)+' L'+(pcx-24)+' '+(ppy+9)+' Z" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.4)"/>';
+  // trajectories
+  function path(tr){var d='';for(var y=tr.D0;y>=0;y-=1.2){var p=tnPos(tr,y);d+=(d?'L':'M')+sx(p[0]).toFixed(1)+' '+sy(p[1]).toFixed(1)+' ';}return d;}
+  s+='<path d="'+path(ta)+'" fill="none" stroke="'+ptColor(a.pt)+'" stroke-width="2.6" opacity="0.9" stroke-linecap="round"/>';
+  s+='<path d="'+path(tb)+'" fill="none" stroke="'+ptColor(b.pt)+'" stroke-width="2.6" opacity="0.9" stroke-linecap="round"/>';
+  // decision window (23 ft)
+  if(TUN.dec){var pa=tnPos(ta,23),pb=tnPos(tb,23),mx=(sx(pa[0])+sx(pb[0]))/2,my=(sy(pa[1])+sy(pb[1]))/2;
+    var bw=Math.max(30,Math.abs(sx(pa[0])-sx(pb[0]))+26),bh=Math.max(26,Math.abs(sy(pa[1])-sy(pb[1]))+22);
+    s+='<rect x="'+(mx-bw/2).toFixed(1)+'" y="'+(my-bh/2).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+bh.toFixed(1)+'" rx="6" fill="none" stroke="rgba(245,211,61,.5)" stroke-dasharray="4 3"/>';
+    s+='<line x1="'+sx(pa[0]).toFixed(1)+'" y1="'+sy(pa[1]).toFixed(1)+'" x2="'+sx(pb[0]).toFixed(1)+'" y2="'+sy(pb[1]).toFixed(1)+'" stroke="rgba(245,211,61,.7)" stroke-width="1.4" stroke-dasharray="3 3"/>';
+    s+='<circle cx="'+sx(pa[0]).toFixed(1)+'" cy="'+sy(pa[1]).toFixed(1)+'" r="3" fill="'+ptColor(a.pt)+'"/><circle cx="'+sx(pb[0]).toFixed(1)+'" cy="'+sy(pb[1]).toFixed(1)+'" r="3" fill="'+ptColor(b.pt)+'"/>';
+    s+='<text x="'+(mx).toFixed(1)+'" y="'+(my-bh/2-5).toFixed(1)+'" fill="#f5d33d" font-size="11" font-weight="700" text-anchor="middle">'+r.tun.toFixed(1)+'″ @ 23 ft</text>';}
+  // plate dots (movable)
+  var da=[sx(ta.px),sy(ta.pz)],db=[sx(tb.px),sy(tb.pz)];
+  s+='<line x1="'+da[0].toFixed(1)+'" y1="'+da[1].toFixed(1)+'" x2="'+db[0].toFixed(1)+'" y2="'+db[1].toFixed(1)+'" stroke="rgba(255,255,255,.5)" stroke-dasharray="3 3"/>';
+  s+='<text x="'+((da[0]+db[0])/2).toFixed(1)+'" y="'+((da[1]+db[1])/2-8).toFixed(1)+'" fill="var(--txt)" font-size="11" font-weight="700" text-anchor="middle">'+r.plate.toFixed(1)+'″ @ plate</text>';
+  [[da,a,TUN.pair[0]],[db,b,TUN.pair[1]]].forEach(function(o){var d=o[0],pp=o[1],idx=o[2];
+    if(TUN.sel===idx)s+='<circle cx="'+d[0].toFixed(1)+'" cy="'+d[1].toFixed(1)+'" r="11" fill="none" stroke="#fff" stroke-width="1.5"/>';
+    s+='<circle class="tndot" data-i="'+idx+'" cx="'+d[0].toFixed(1)+'" cy="'+d[1].toFixed(1)+'" r="7.5" fill="'+ptColor(pp.pt)+'" stroke="#0b1220" stroke-width="1.4" style="cursor:pointer"/>';});
+  // badge
+  s+='<rect x="'+(W/2-70)+'" y="10" width="140" height="30" rx="15" fill="'+tnCol(r.score)+'" opacity="0.16" stroke="'+tnCol(r.score)+'"/>';
+  s+='<text x="'+(W/2)+'" y="30" fill="'+tnCol(r.score)+'" font-size="15" font-weight="800" text-anchor="middle">Tunnel: '+r.score+'</text>';
+  s+='<text x="'+(W/2)+'" y="48" fill="var(--mut)" font-size="10" text-anchor="middle">Δ '+r.dmph.toFixed(1)+' mph · ratio '+r.ratio.toFixed(1)+'×'+(r.ov!=null?' · overlap '+Math.round(r.ov*100)+'%':'')+'</text>';
+  s+='<text x="12" y="'+(TOP-6)+'" fill="var(--dim)" font-size="8.5">Catcher’s view</text>';
+  panel.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div><span class="dot" style="background:'+ptColor(a.pt)+'"></span> '+a.pt+' '+fmt(a.velo)+' · '+fmt(a.ivb)+'″iVB '+fmt(a.hb)+'″HB &nbsp; <span class="dot" style="background:'+ptColor(b.pt)+'"></span> '+b.pt+' '+fmt(b.velo)+'</div></div>'+s+'</svg>';
+  wireTunnel();
+}
+function wireTunnel(){var svg=el('tnSvg');if(!svg)return;
+  svg.querySelectorAll('.tndot').forEach(function(c){c.addEventListener('click',function(e){e.stopPropagation();TUN.sel=+c.getAttribute('data-i');tnRenderVisual();});});
+  svg.addEventListener('click',function(e){if(TUN.sel==null)return;var tf=TUN.tf,rect=svg.getBoundingClientRect(),sc=rect.width/tf.W;
+    var lx=(e.clientX-rect.left)/sc,ly=(e.clientY-rect.top)/sc;
+    var xcv=tf.XL+(lx-tf.pad)/(tf.W-2*tf.pad)*(tf.XR-tf.XL),z=tf.ZT-(ly-tf.TOP)/tf.PH*(tf.ZT-tf.ZB);
+    var p=TUN.pitches[TUN.sel];p.px=Math.max(-2,Math.min(2,-xcv));p.pz=Math.max(0.8,Math.min(4.2,z));tnRenderAll();});
+}
 /* ---- global search ---- */
 function buildSearch(){
   var gs=el('gsearch'),sg=el('gsug');
