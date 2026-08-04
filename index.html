@@ -456,7 +456,7 @@ function pv(v){return v==null?'—':v+'%';}
 function reptable(rows,g){
   var head=g?['Pitch','Ct','Use%','Stuff+','Velo','Max','Spin','IVB','HB','Ext','RelH','RelS','HAVAA','xwOBA','Zone%','Whiff%','Chase%','IZ Whf%']
            :['Pitch','Ct','Pit%','Velo','Max','iVB','HB','Spin','HAVAA','vRel','hRel','Ext','Zone%','Chase%','Whiff%'];
-  var h='<div style="overflow:auto"><table style="font-size:12px"><thead><tr>'+head.map(function(x){return '<th>'+x+'</th>';}).join('')+'</tr></thead><tbody>';
+  var h='<div class="rpt-scroll" style="overflow:auto"><table style="font-size:12px;white-space:nowrap"><thead><tr>'+head.map(function(x){return '<th>'+x+'</th>';}).join('')+'</tr></thead><tbody>';
   rows.forEach(function(r){var pill='<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+ptColor(r.pt)+';margin-right:6px"></span>'+r.pt;
     var c=g?[pill,r.n,r.u+'%',plusChip(r.stuff),fmt(r.velo),fmt(r.mx),r.spin||'—',fmt(r.ivb),fmt(r.hb),fmt(r.ext),fmt(r.relh),fmt(r.rels),havaaTxt(r),(r.xw==null?'—':r.xw.toFixed(3)),r.zone+'%',pv(r.whiff),pv(r.chase),pv(r.izw)]
              :[pill,r.n,r.u+'%',fmt(r.velo),fmt(r.mx),fmt(r.ivb),fmt(r.hb),r.spin||'—',havaaTxt(r),fmt(r.relh),fmt(r.rels),fmt(r.ext),r.zone+'%',pv(r.chase),pv(r.whiff)];
@@ -471,21 +471,27 @@ function loadPdfLibs(){if(_pdflibs)return _pdflibs;
       add('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',function(){res();});});});
   return _pdflibs;}
 function exportPDF(fname,btn){
-  var node=el('pDetail'),hid=node.querySelectorAll('.no-pdf'),old=btn?btn.innerHTML:'';
+  var node=el('pDetail'),hid=node.querySelectorAll('.no-pdf'),scr=node.querySelectorAll('.rpt-scroll'),old=btn?btn.innerHTML:'';
+  function restore(){hid.forEach(function(e){e.style.display=e.dataset._d||'';});
+    scr.forEach(function(e){e.style.overflow=e.dataset._o||'';e.style.width=e.dataset._w||'';});
+    if(btn){btn.disabled=false;btn.innerHTML=old;}}
   if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader"></i> Generating…';}
+  var fullW;
   loadPdfLibs().then(function(){
     hid.forEach(function(e){e.dataset._d=e.style.display;e.style.display='none';});
-    return html2canvas(node,{backgroundColor:'#0b1220',scale:2,useCORS:true,logging:false});
+    // expand horizontally-scrolling tables so ALL columns are captured
+    scr.forEach(function(e){e.dataset._o=e.style.overflow;e.dataset._w=e.style.width;e.style.overflow='visible';e.style.width='max-content';});
+    fullW=Math.max(node.scrollWidth,node.offsetWidth);
+    return html2canvas(node,{backgroundColor:'#0b1220',scale:2,useCORS:true,logging:false,width:fullW,windowWidth:fullW});
   }).then(function(canvas){
-    hid.forEach(function(e){e.style.display=e.dataset._d||'';});
+    restore();
     var jsPDF=window.jspdf.jsPDF,pdf=new jsPDF('p','pt','a4'),pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
     var ratio=pw/canvas.width,pxPerPage=canvas.height<=ph/ratio?canvas.height:Math.floor(ph/ratio),sy=0,pc=document.createElement('canvas'),ctx=pc.getContext('2d');
     while(sy<canvas.height){var sh=Math.min(pxPerPage,canvas.height-sy);pc.width=canvas.width;pc.height=sh;
       ctx.fillStyle='#0b1220';ctx.fillRect(0,0,pc.width,sh);ctx.drawImage(canvas,0,sy,canvas.width,sh,0,0,canvas.width,sh);
       if(sy>0)pdf.addPage();pdf.addImage(pc.toDataURL('image/png'),'PNG',0,0,pw,sh*ratio);sy+=sh;}
     pdf.save(fname);
-    if(btn){btn.disabled=false;btn.innerHTML=old;}
-  }).catch(function(e){hid.forEach(function(e2){e2.style.display=e2.dataset._d||'';});if(btn){btn.disabled=false;btn.innerHTML=old;}alert('PDF export failed: '+e.message);});
+  }).catch(function(e){restore();alert('PDF export failed: '+e.message);});
 }
 function renderGame(gi){
   var p=CURP,rep=CURREP,gm=rep.games[gi];window.scrollTo(0,0);
