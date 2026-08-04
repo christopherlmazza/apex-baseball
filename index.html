@@ -463,9 +463,34 @@ function reptable(rows,g){
     h+='<tr style="cursor:default">'+c.map(function(v,i){return '<td class="mono"'+(i===0?' style="font-family:var(--body);white-space:nowrap"':'')+'>'+v+'</td>';}).join('')+'</tr>';});
   return h+'</tbody></table></div>';}
 var LEGEND='<div class="legend" style="gap:16px;flex-wrap:wrap"><span><svg width="12" height="12"><circle cx="6" cy="6" r="3.4" fill="none" stroke="var(--mut)" stroke-width="1.4"/></svg> Ball</span><span><svg width="12" height="12"><circle cx="6" cy="6" r="3.4" fill="var(--mut)"/></svg> Called strike</span><span><svg width="12" height="12"><path d="M2 2 L10 10 M10 2 L2 10" stroke="var(--mut)" stroke-width="1.6"/></svg> Swinging strike</span><span><svg width="12" height="12"><path d="M6 2 L10 10 L2 10 Z" fill="var(--mut)"/></svg> Foul</span><span><svg width="12" height="12"><rect x="2.6" y="2.6" width="6.8" height="6.8" fill="var(--mut)"/></svg> In play</span></div>';
+var _pdflibs=null;
+function loadPdfLibs(){if(_pdflibs)return _pdflibs;
+  _pdflibs=new Promise(function(res,rej){
+    function add(src,cb){var s=document.createElement('script');s.src=src;s.onload=cb;s.onerror=function(){rej(new Error('load '+src));};document.head.appendChild(s);}
+    add('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',function(){
+      add('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',function(){res();});});});
+  return _pdflibs;}
+function exportPDF(fname,btn){
+  var node=el('pDetail'),hid=node.querySelectorAll('.no-pdf'),old=btn?btn.innerHTML:'';
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader"></i> Generating…';}
+  loadPdfLibs().then(function(){
+    hid.forEach(function(e){e.dataset._d=e.style.display;e.style.display='none';});
+    return html2canvas(node,{backgroundColor:'#0b1220',scale:2,useCORS:true,logging:false});
+  }).then(function(canvas){
+    hid.forEach(function(e){e.style.display=e.dataset._d||'';});
+    var jsPDF=window.jspdf.jsPDF,pdf=new jsPDF('p','pt','a4'),pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
+    var ratio=pw/canvas.width,pxPerPage=canvas.height<=ph/ratio?canvas.height:Math.floor(ph/ratio),sy=0,pc=document.createElement('canvas'),ctx=pc.getContext('2d');
+    while(sy<canvas.height){var sh=Math.min(pxPerPage,canvas.height-sy);pc.width=canvas.width;pc.height=sh;
+      ctx.fillStyle='#0b1220';ctx.fillRect(0,0,pc.width,sh);ctx.drawImage(canvas,0,sy,canvas.width,sh,0,0,canvas.width,sh);
+      if(sy>0)pdf.addPage();pdf.addImage(pc.toDataURL('image/png'),'PNG',0,0,pw,sh*ratio);sy+=sh;}
+    pdf.save(fname);
+    if(btn){btn.disabled=false;btn.innerHTML=old;}
+  }).catch(function(e){hid.forEach(function(e2){e2.style.display=e2.dataset._d||'';});if(btn){btn.disabled=false;btn.innerHTML=old;}alert('PDF export failed: '+e.message);});
+}
 function renderGame(gi){
   var p=CURP,rep=CURREP,gm=rep.games[gi];window.scrollTo(0,0);
-  var h='<a class="pill" style="cursor:pointer;display:inline-block;margin-bottom:14px" onclick="renderDetail(CURP,CURDET,CURREP)">← '+p.name+'</a>';
+  var fn=(p.name+' vs '+gm.opp+' '+gm.d).replace(/[^\w \-]/g,'').replace(/\s+/g,' ').trim()+'.pdf';
+  var h='<div class="no-pdf" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><a class="pill" style="cursor:pointer" onclick="renderDetail(CURP,CURDET,CURREP)">← '+p.name+'</a><button class="btn" style="padding:8px 14px" onclick="exportPDF(\''+fn+'\',this)"><i class="ti ti-download"></i> Download PDF</button></div>';
   h+='<div style="text-align:center;margin-bottom:6px"><div style="font-family:var(--disp);font-size:26px;font-weight:700">'+p.name+'</div><div class="mut">'+(p.hand==='R'?'RHP':'LHP')+' • vs '+gm.opp+' • '+gm.d+'</div></div>';
   var L=gm.ln;
   h+='<div class="mono" style="text-align:center;color:var(--mut);margin:12px 0 20px;font-size:13px">IP '+L.ip+' &nbsp;·&nbsp; PA '+L.pa+' &nbsp;·&nbsp; P '+L.p+' &nbsp;·&nbsp; H '+L.h+' &nbsp;·&nbsp; K '+L.k+' &nbsp;·&nbsp; BB '+L.bb+' &nbsp;·&nbsp; HBP '+L.hbp+' &nbsp;·&nbsp; HR '+L.hr+' &nbsp;·&nbsp; <span style="color:var(--acc)">STR '+L.str+'%</span></div>';
@@ -480,7 +505,8 @@ function renderGame(gi){
 }
 function renderSeason(){
   var p=CURP,rep=CURREP;window.scrollTo(0,0);
-  var h='<a class="pill" style="cursor:pointer;display:inline-block;margin-bottom:14px" onclick="renderDetail(CURP,CURDET,CURREP)">← '+p.name+'</a>';
+  var fn=(p.name+' Season Summary').replace(/[^\w \-]/g,'').replace(/\s+/g,' ').trim()+'.pdf';
+  var h='<div class="no-pdf" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><a class="pill" style="cursor:pointer" onclick="renderDetail(CURP,CURDET,CURREP)">← '+p.name+'</a><button class="btn" style="padding:8px 14px" onclick="exportPDF(\''+fn+'\',this)"><i class="ti ti-download"></i> Download PDF</button></div>';
   h+='<div style="text-align:center;margin-bottom:4px"><div style="font-family:var(--disp);font-size:26px;font-weight:700">'+p.name+'</div><div class="mut">'+(p.hand==='R'?'RHP':'LHP')+' • Season Pitching Summary • '+rep.games.length+' outings</div></div>';
   h+='<div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;align-items:start;margin-top:16px">';
   h+='<div class="panel"><div class="ht" style="font-family:var(--disp);font-weight:600;margin-bottom:8px">Pitch velocity distribution</div>'+svgVelo(rep)+'</div>';
