@@ -838,7 +838,7 @@ function tnRenderVisual(){
   var panel=el('tnVizPanel');if(!panel||!TUN.pair)return;var ps=TUN.pitches,a=ps[TUN.pair[0]],b=ps[TUN.pair[1]];if(!a||!b)return;
   var r=tnScore(a,b);
   // perspective camera behind the plate (true catcher POV): far points (release) converge to center, near (plate) spread out
-  var W=460,H=430,FOC=260,CAMY=2.5,CAMZ=2.6,CX=W/2,CY=196;
+  var W=460,H=430,FOC=260,CAMY=2.5,CAMZ=2.6,CX=W/2+(TUN.panX||0),CY=196+(TUN.panY||0);
   function pj(x,z,y){var dy=y+CAMZ;return [CX+FOC*x/dy, CY-FOC*(z-CAMY)/dy];}
   TUN.tf={W:W,H:H,FOC:FOC,CAMY:CAMY,CAMZ:CAMZ,CX:CX,CY:CY};
   var ta=tnTraj(a),tb=tnTraj(b),s='<svg id="tnSvg" viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:520px;display:block;margin:0 auto;touch-action:none;cursor:crosshair">';
@@ -847,7 +847,7 @@ function tnRenderVisual(){
   s+='<polygon points="'+zc.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ')+'" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.2"/>';
   for(var g=1;g<=2;g++){var xg=-0.83+g*1.66/3,zg=1.6+g*1.9/3,v1=pj(xg,3.5,0),v2=pj(xg,1.6,0),h1=pj(-0.83,zg,0),h2=pj(0.83,zg,0);
     s+='<line x1="'+v1[0].toFixed(1)+'" y1="'+v1[1].toFixed(1)+'" x2="'+v2[0].toFixed(1)+'" y2="'+v2[1].toFixed(1)+'" stroke="rgba(255,255,255,.12)"/><line x1="'+h1[0].toFixed(1)+'" y1="'+h1[1].toFixed(1)+'" x2="'+h2[0].toFixed(1)+'" y2="'+h2[1].toFixed(1)+'" stroke="rgba(255,255,255,.12)"/>';}
-  var hp=[[-0.71,0.2,0.2],[0.71,0.2,0.2],[0.71,0.2,0.95],[0,0.2,1.45],[-0.71,0.2,0.95]].map(function(c){return pj(c[0],c[1],c[2]);});
+  var hp=[[0,0.2,0.1],[0.71,0.2,0.7],[0.71,0.2,1.45],[-0.71,0.2,1.45],[-0.71,0.2,0.7]].map(function(c){return pj(c[0],c[1],c[2]);});
   s+='<polygon points="'+hp.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ')+'" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.35)"/>';
   // trajectories (release → plate)
   function path(tr){var d='';for(var y=tr.D0;y>=-0.01;y-=1.5){var yy=Math.max(0,y),p=tnPos(tr,yy),q=pj(p[0],p[1],yy);d+=(d?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)+' ';}return d;}
@@ -874,10 +874,19 @@ function tnRenderVisual(){
   s+='<text x="'+(W/2)+'" y="30" fill="'+tnCol(r.score)+'" font-size="15" font-weight="800" text-anchor="middle">Tunnel: '+r.score+'</text>';
   s+='<text x="'+(W/2)+'" y="48" fill="var(--mut)" font-size="10" text-anchor="middle">Δ '+r.dmph.toFixed(1)+' mph · ratio '+r.ratio.toFixed(1)+'×'+(r.ov!=null?' · overlap '+Math.round(r.ov*100)+'%':'')+'</text>';
   s+='<text x="12" y="'+(H-8)+'" fill="var(--dim)" font-size="8.5">Catcher’s view</text>';
-  panel.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div><span class="dot" style="background:'+ptColor(a.pt)+'"></span> '+a.pt+' '+fmt(a.velo)+' · '+fmt(a.ivb)+'″iVB '+fmt(a.hb)+'″HB &nbsp; <span class="dot" style="background:'+ptColor(b.pt)+'"></span> '+b.pt+' '+fmt(b.velo)+'</div></div>'+s+'</svg>';
+  panel.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div><span class="dot" style="background:'+ptColor(a.pt)+'"></span> '+a.pt+' '+fmt(a.velo)+' · '+fmt(a.ivb)+'″iVB '+fmt(a.hb)+'″HB &nbsp; <span class="dot" style="background:'+ptColor(b.pt)+'"></span> '+b.pt+' '+fmt(b.velo)+'</div></div>'+s+'</svg>'+
+  '<div style="display:flex;gap:5px;justify-content:center;align-items:center;margin-top:8px">'+
+  '<button class="tnpanb" data-pan="L" style="background:#16203a;border:1px solid #2a3a5c;color:var(--txt);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px">◀</button>'+
+  '<div style="display:flex;flex-direction:column;gap:4px"><button class="tnpanb" data-pan="U" style="background:#16203a;border:1px solid #2a3a5c;color:var(--txt);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:13px">▲</button><button class="tnpanb" data-pan="D" style="background:#16203a;border:1px solid #2a3a5c;color:var(--txt);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:13px">▼</button></div>'+
+  '<button class="tnpanb" data-pan="R" style="background:#16203a;border:1px solid #2a3a5c;color:var(--txt);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px">▶</button>'+
+  '<button class="tnpanb" data-pan="0" style="background:#16203a;border:1px solid #2a3a5c;color:var(--mut);border-radius:6px;padding:5px 11px;cursor:pointer;font-size:11px;margin-left:10px">Reset view</button></div>';
   wireTunnel();
 }
-function wireTunnel(){var svg=el('tnSvg');if(!svg)return;
+function wireTunnel(){var svg=el('tnSvg');if(!svg)return;var panel=el('tnVizPanel');
+  if(panel)panel.querySelectorAll('.tnpanb').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var d=b.getAttribute('data-pan'),st=30;
+    if(d==='L')TUN.panX=(TUN.panX||0)-st;else if(d==='R')TUN.panX=(TUN.panX||0)+st;
+    else if(d==='U')TUN.panY=(TUN.panY||0)-st;else if(d==='D')TUN.panY=(TUN.panY||0)+st;
+    else{TUN.panX=0;TUN.panY=0;}tnRenderVisual();});});
   svg.querySelectorAll('.tndot').forEach(function(c){c.addEventListener('click',function(e){e.stopPropagation();TUN.sel=+c.getAttribute('data-i');tnRenderVisual();});});
   svg.addEventListener('click',function(e){if(TUN.sel==null)return;var tf=TUN.tf,rect=svg.getBoundingClientRect(),sc=rect.width/tf.W;
     var lx=(e.clientX-rect.left)/sc,ly=(e.clientY-rect.top)/sc;
