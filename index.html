@@ -805,12 +805,12 @@ function tnLoadReal(i){var p=P[i];if(!p)return;TUN.mode='real';el('tnOut').inner
   Promise.all([getDetail(p),getReport(p)]).then(function(a){var det=a[0],rep=a[1];
     var pits=[];det.ars.forEach(function(ar){var pti=PTIDX.indexOf(ar.pt);if(pti<0)return;var pl=tnPlate(rep,pti);if(!pl)return;
       if(ar.ivb==null||ar.hb==null||ar.velo==null)return;
-      pits.push({pt:ar.pt,velo:ar.velo,ivb:ar.ivb,hb:ar.hb,rels:pl.rels,relh:pl.relh,ext:ar.ext||6.2,px:pl.px,pz:pl.pz,hist:pl.hist,usage:ar.usage});});
+      pits.push({pt:ar.pt,velo:ar.velo,ivb:ar.ivb,hb:ar.hb,hand:p.hand,rels:pl.rels,relh:pl.relh,ext:ar.ext||6.2,px:pl.px,pz:pl.pz,hist:pl.hist,usage:ar.usage});});
     pits.sort(function(x,y){return y.usage-x.usage;});
     TUN.pitches=pits;TUN.title=p.name+' · '+p.tn+' · '+(p.hand==='R'?'RHP':'LHP');
     TUN.pair=pits.length>=2?[0,1]:null;TUN.sel=null;tnRenderAll();});
 }
-function tnTraj(p){var D0=60.5-(p.ext||6.2),T=D0/(1.467*p.velo*0.92),HB=-(p.hb||0)/12,IV=(p.ivb||0)/12,rx=-(p.rels||0),rz=p.relh||6,px=-(p.px||0),pz=p.pz||2.5;
+function tnTraj(p){var D0=60.5-(p.ext||6.2),T=D0/(1.467*p.velo*0.92),HB=-((p.hand==='L'?-1:1)*(p.hb||0))/12,IV=(p.ivb||0)/12,rx=-(p.rels||0),rz=p.relh||6,px=-(p.px||0),pz=p.pz||2.5;
   var ahb=2*HB/(T*T),vx0=(px-rx-HB)/T,aiv=2*IV/(T*T),az=-32.174+aiv,vz0=(pz-rz-0.5*az*T*T)/T;
   return {D0:D0,T:T,rx:rx,rz:rz,vx0:vx0,ahb:ahb,vz0:vz0,az:az,px:px,pz:pz};}
 function tnPos(tr,y){var t=(1-y/tr.D0)*tr.T;return [tr.rx+tr.vx0*t+0.5*tr.ahb*t*t, tr.rz+tr.vz0*t+0.5*tr.az*t*t];}
@@ -874,7 +874,7 @@ function tnRenderVisual(){
   s+='<text x="'+(W/2)+'" y="30" fill="'+tnCol(r.score)+'" font-size="15" font-weight="800" text-anchor="middle">Tunnel: '+r.score+'</text>';
   s+='<text x="'+(W/2)+'" y="48" fill="var(--mut)" font-size="10" text-anchor="middle">Δ '+r.dmph.toFixed(1)+' mph · ratio '+r.ratio.toFixed(1)+'×'+(r.ov!=null?' · overlap '+Math.round(r.ov*100)+'%':'')+'</text>';
   s+='<text x="12" y="'+(H-8)+'" fill="var(--dim)" font-size="8.5">Catcher’s view</text>';
-  panel.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div><span class="dot" style="background:'+ptColor(a.pt)+'"></span> '+a.pt+' '+fmt(a.velo)+' · '+fmt(a.ivb)+'″iVB '+fmt(a.hb)+'″HB &nbsp; <span class="dot" style="background:'+ptColor(b.pt)+'"></span> '+b.pt+' '+fmt(b.velo)+'</div></div>'+s+'</svg>'+
+  panel.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div><span class="dot" style="background:'+ptColor(a.pt)+'"></span> '+a.pt+' '+fmt(a.velo)+' · '+fmt(a.ivb)+'″iVB '+fmt((a.hand==='L'?-1:1)*(a.hb||0))+'″HB &nbsp; <span class="dot" style="background:'+ptColor(b.pt)+'"></span> '+b.pt+' '+fmt(b.velo)+' · '+fmt((b.hand==='L'?-1:1)*(b.hb||0))+'″HB</div></div>'+s+'</svg>'+
   '<div style="display:flex;gap:5px;justify-content:center;align-items:center;margin-top:8px">'+
   '<button class="tnpanb" data-pan="L" style="background:#16203a;border:1px solid #2a3a5c;color:var(--txt);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px">◀</button>'+
   '<div style="display:flex;flex-direction:column;gap:4px"><button class="tnpanb" data-pan="U" style="background:#16203a;border:1px solid #2a3a5c;color:var(--txt);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:13px">▲</button><button class="tnpanb" data-pan="D" style="background:#16203a;border:1px solid #2a3a5c;color:var(--txt);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:13px">▼</button></div>'+
