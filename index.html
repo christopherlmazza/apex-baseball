@@ -838,8 +838,8 @@ function tnRenderVisual(){
   var panel=el('tnVizPanel');if(!panel||!TUN.pair)return;var ps=TUN.pitches,a=ps[TUN.pair[0]],b=ps[TUN.pair[1]];if(!a||!b)return;
   var r=tnScore(a,b);
   // ---- orbiting 3D camera · world axes X=horizontal(+1B/right) Y=depth(plate→mound) Z=height ----
-  var W=460,H=470,FOC=1320,CX=W/2,CY=195,PIV=[0,27,2.7];
-  var cam=TUN.cam||(TUN.cam={az:0,el:0.16,R:60});
+  var W=460,H=430,FOC=260,CX=W/2,CY=196,PIV=[0,27,2.6];
+  var cam=TUN.cam||(TUN.cam={az:0,el:0,R:29.6});
   var ce=Math.cos(cam.el),se=Math.sin(cam.el),f=[ce*Math.sin(cam.az),ce*Math.cos(cam.az),-se];
   var C=[PIV[0]-cam.R*f[0],PIV[1]-cam.R*f[1],PIV[2]-cam.R*f[2]];
   function cx3(a2,b2){return [a2[1]*b2[2]-a2[2]*b2[1],a2[2]*b2[0]-a2[0]*b2[2],a2[0]*b2[1]-a2[1]*b2[0]];}
@@ -851,9 +851,9 @@ function tnRenderVisual(){
   var ta=tnTraj(a),tb=tnTraj(b);
   var s='<svg id="tnSvg" viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:520px;display:block;margin:0 auto;touch-action:none;cursor:grab">';
   // ground center line + pitching rubber
-  var gl0=pj3([0,0,0.04]),gl1=pj3([0,55,0.04]);
+  var gl0=pj3([0,0,0.2]),gl1=pj3([0,55,0.2]);
   if(gl0[2]>0&&gl1[2]>0)s+='<line x1="'+gl0[0].toFixed(1)+'" y1="'+gl0[1].toFixed(1)+'" x2="'+gl1[0].toFixed(1)+'" y2="'+gl1[1].toFixed(1)+'" stroke="rgba(255,255,255,.07)"/>';
-  var rb0=pj3([-0.85,55,0.04]),rb1=pj3([0.85,55,0.04]);
+  var rb0=pj3([-0.85,55,0.2]),rb1=pj3([0.85,55,0.2]);
   if(rb0[2]>0&&rb1[2]>0)s+='<line x1="'+rb0[0].toFixed(1)+'" y1="'+rb0[1].toFixed(1)+'" x2="'+rb1[0].toFixed(1)+'" y2="'+rb1[1].toFixed(1)+'" stroke="rgba(255,255,255,.22)" stroke-width="2.5"/>';
   // strike zone at plate
   var zc=[[-0.83,0,3.5],[0.83,0,3.5],[0.83,0,1.6],[-0.83,0,1.6]].map(pj3);
@@ -861,7 +861,7 @@ function tnRenderVisual(){
   for(var g=1;g<=2;g++){var xg=-0.83+g*1.66/3,zg=1.6+g*1.9/3,v1=pj3([xg,0,3.5]),v2=pj3([xg,0,1.6]),h1=pj3([-0.83,0,zg]),h2=pj3([0.83,0,zg]);
     s+='<line x1="'+v1[0].toFixed(1)+'" y1="'+v1[1].toFixed(1)+'" x2="'+v2[0].toFixed(1)+'" y2="'+v2[1].toFixed(1)+'" stroke="rgba(255,255,255,.1)"/><line x1="'+h1[0].toFixed(1)+'" y1="'+h1[1].toFixed(1)+'" x2="'+h2[0].toFixed(1)+'" y2="'+h2[1].toFixed(1)+'" stroke="rgba(255,255,255,.1)"/>';}
   // home plate (tip toward catcher)
-  var hp=[[0,0,0.04],[0.71,0.7,0.04],[0.71,1.45,0.04],[-0.71,1.45,0.04],[-0.71,0.7,0.04]].map(pj3);
+  var hp=[[0,0.1,0.2],[0.71,0.7,0.2],[0.71,1.45,0.2],[-0.71,1.45,0.2],[-0.71,0.7,0.2]].map(pj3);
   s+='<polygon points="'+hp.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ')+'" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.3)"/>';
   // trajectories (release → plate) drawn far-to-near
   function path(tr){var d='';for(var y=tr.D0;y>=-0.01;y-=1.2){var yy=Math.max(0,y),p=tnPos(tr,yy),q=pj3([p[0],yy,p[1]]);if(q[2]<=0)continue;d+=(d?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)+' ';}return d;}
@@ -900,7 +900,7 @@ function wireTunnel(){var svg=el('tnSvg');if(!svg)return;var panel=el('tnVizPane
   if(panel)panel.querySelectorAll('.tnpanb').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var d=b.getAttribute('data-pan'),c=TUN.cam;
     if(d==='L')c.az-=0.26;else if(d==='R')c.az+=0.26;
     else if(d==='U')c.el=Math.min(1.2,c.el+0.18);else if(d==='D')c.el=Math.max(-1.2,c.el-0.18);
-    else{c.az=0;c.el=0.16;}tnRenderVisual();});});
+    else{c.az=0;c.el=0;}tnRenderVisual();});});
   svg.querySelectorAll('.tndot').forEach(function(c){c.addEventListener('pointerdown',function(e){e.stopPropagation();TUN.sel=+c.getAttribute('data-i');tnRenderVisual();});});
   svg.addEventListener('pointerdown',function(e){var rect=svg.getBoundingClientRect();TUN._drag={x:e.clientX,y:e.clientY,moved:0,rect:rect};
     function mv(ev){var dx=ev.clientX-TUN._drag.x,dy=ev.clientY-TUN._drag.y;TUN._drag.x=ev.clientX;TUN._drag.y=ev.clientY;
