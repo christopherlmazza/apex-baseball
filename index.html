@@ -837,33 +837,47 @@ function tnCol(s){return s>=75?'#3df5c0':s>=55?'#9be15d':s>=40?'#f5d33d':'#ff8f5
 function tnRenderVisual(){
   var panel=el('tnVizPanel');if(!panel||!TUN.pair)return;var ps=TUN.pitches,a=ps[TUN.pair[0]],b=ps[TUN.pair[1]];if(!a||!b)return;
   var r=tnScore(a,b);
-  // perspective camera behind the plate (true catcher POV): far points (release) converge to center, near (plate) spread out
-  var W=460,H=430,FOC=260,CAMY=2.5,CAMZ=2.6,CX=W/2+(TUN.panX||0),CY=196+(TUN.panY||0);
-  function pj(x,z,y){var dy=y+CAMZ;return [CX+FOC*x/dy, CY-FOC*(z-CAMY)/dy];}
-  TUN.tf={W:W,H:H,FOC:FOC,CAMY:CAMY,CAMZ:CAMZ,CX:CX,CY:CY};
-  var ta=tnTraj(a),tb=tnTraj(b),s='<svg id="tnSvg" viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:520px;display:block;margin:0 auto;touch-action:none;cursor:crosshair">';
-  // strike zone (projected at plate depth)
-  var zc=[[-0.83,3.5],[0.83,3.5],[0.83,1.6],[-0.83,1.6]].map(function(c){return pj(c[0],c[1],0);});
-  s+='<polygon points="'+zc.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ')+'" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.2"/>';
-  for(var g=1;g<=2;g++){var xg=-0.83+g*1.66/3,zg=1.6+g*1.9/3,v1=pj(xg,3.5,0),v2=pj(xg,1.6,0),h1=pj(-0.83,zg,0),h2=pj(0.83,zg,0);
-    s+='<line x1="'+v1[0].toFixed(1)+'" y1="'+v1[1].toFixed(1)+'" x2="'+v2[0].toFixed(1)+'" y2="'+v2[1].toFixed(1)+'" stroke="rgba(255,255,255,.12)"/><line x1="'+h1[0].toFixed(1)+'" y1="'+h1[1].toFixed(1)+'" x2="'+h2[0].toFixed(1)+'" y2="'+h2[1].toFixed(1)+'" stroke="rgba(255,255,255,.12)"/>';}
-  var hp=[[0,0.2,0.1],[0.71,0.2,0.7],[0.71,0.2,1.45],[-0.71,0.2,1.45],[-0.71,0.2,0.7]].map(function(c){return pj(c[0],c[1],c[2]);});
-  s+='<polygon points="'+hp.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ')+'" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.35)"/>';
-  // trajectories (release → plate)
-  function path(tr){var d='';for(var y=tr.D0;y>=-0.01;y-=1.5){var yy=Math.max(0,y),p=tnPos(tr,yy),q=pj(p[0],p[1],yy);d+=(d?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)+' ';}return d;}
+  // ---- orbiting 3D camera · world axes X=horizontal(+1B/right) Y=depth(plate→mound) Z=height ----
+  var W=460,H=440,FOC=880,CX=W/2,CY=170,PIV=[0,27,2.7];
+  var cam=TUN.cam||(TUN.cam={az:0,el:0.16,R:60});
+  var ce=Math.cos(cam.el),se=Math.sin(cam.el),f=[ce*Math.sin(cam.az),ce*Math.cos(cam.az),-se];
+  var C=[PIV[0]-cam.R*f[0],PIV[1]-cam.R*f[1],PIV[2]-cam.R*f[2]];
+  function cx3(a2,b2){return [a2[1]*b2[2]-a2[2]*b2[1],a2[2]*b2[0]-a2[0]*b2[2],a2[0]*b2[1]-a2[1]*b2[0]];}
+  function nm3(v){var m=Math.hypot(v[0],v[1],v[2])||1;return [v[0]/m,v[1]/m,v[2]/m];}
+  var rt=nm3(cx3(f,[0,0,1])),up=cx3(rt,f);
+  function pj3(P){var vx=P[0]-C[0],vy=P[1]-C[1],vz=P[2]-C[2],dep=vx*f[0]+vy*f[1]+vz*f[2];
+    return [CX+FOC*(vx*rt[0]+vy*rt[1]+vz*rt[2])/dep, CY-FOC*(vx*up[0]+vy*up[1]+vz*up[2])/dep, dep];}
+  TUN.tf={W:W,H:H,FOC:FOC,CX:CX,CY:CY,C:C,f:f,rt:rt,up:up};
+  var ta=tnTraj(a),tb=tnTraj(b);
+  var s='<svg id="tnSvg" viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:520px;display:block;margin:0 auto;touch-action:none;cursor:grab">';
+  // ground center line + pitching rubber
+  var gl0=pj3([0,0,0.04]),gl1=pj3([0,55,0.04]);
+  if(gl0[2]>0&&gl1[2]>0)s+='<line x1="'+gl0[0].toFixed(1)+'" y1="'+gl0[1].toFixed(1)+'" x2="'+gl1[0].toFixed(1)+'" y2="'+gl1[1].toFixed(1)+'" stroke="rgba(255,255,255,.07)"/>';
+  var rb0=pj3([-0.85,55,0.04]),rb1=pj3([0.85,55,0.04]);
+  if(rb0[2]>0&&rb1[2]>0)s+='<line x1="'+rb0[0].toFixed(1)+'" y1="'+rb0[1].toFixed(1)+'" x2="'+rb1[0].toFixed(1)+'" y2="'+rb1[1].toFixed(1)+'" stroke="rgba(255,255,255,.22)" stroke-width="2.5"/>';
+  // strike zone at plate
+  var zc=[[-0.83,0,3.5],[0.83,0,3.5],[0.83,0,1.6],[-0.83,0,1.6]].map(pj3);
+  s+='<polygon points="'+zc.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ')+'" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.4)" stroke-width="1.2"/>';
+  for(var g=1;g<=2;g++){var xg=-0.83+g*1.66/3,zg=1.6+g*1.9/3,v1=pj3([xg,0,3.5]),v2=pj3([xg,0,1.6]),h1=pj3([-0.83,0,zg]),h2=pj3([0.83,0,zg]);
+    s+='<line x1="'+v1[0].toFixed(1)+'" y1="'+v1[1].toFixed(1)+'" x2="'+v2[0].toFixed(1)+'" y2="'+v2[1].toFixed(1)+'" stroke="rgba(255,255,255,.1)"/><line x1="'+h1[0].toFixed(1)+'" y1="'+h1[1].toFixed(1)+'" x2="'+h2[0].toFixed(1)+'" y2="'+h2[1].toFixed(1)+'" stroke="rgba(255,255,255,.1)"/>';}
+  // home plate (tip toward catcher)
+  var hp=[[0,0,0.04],[0.71,0.7,0.04],[0.71,1.45,0.04],[-0.71,1.45,0.04],[-0.71,0.7,0.04]].map(pj3);
+  s+='<polygon points="'+hp.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ')+'" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.3)"/>';
+  // trajectories (release → plate) drawn far-to-near
+  function path(tr){var d='';for(var y=tr.D0;y>=-0.01;y-=1.2){var yy=Math.max(0,y),p=tnPos(tr,yy),q=pj3([p[0],yy,p[1]]);if(q[2]<=0)continue;d+=(d?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)+' ';}return d;}
   s+='<path d="'+path(ta)+'" fill="none" stroke="'+ptColor(a.pt)+'" stroke-width="2.8" opacity="0.92" stroke-linecap="round"/>';
   s+='<path d="'+path(tb)+'" fill="none" stroke="'+ptColor(b.pt)+'" stroke-width="2.8" opacity="0.92" stroke-linecap="round"/>';
-  var ra=pj(ta.rx,ta.rz,ta.D0),rb=pj(tb.rx,tb.rz,tb.D0);
-  s+='<circle cx="'+ra[0].toFixed(1)+'" cy="'+ra[1].toFixed(1)+'" r="2.4" fill="'+ptColor(a.pt)+'"/><circle cx="'+rb[0].toFixed(1)+'" cy="'+rb[1].toFixed(1)+'" r="2.4" fill="'+ptColor(b.pt)+'"/>';
+  var ra=pj3([ta.rx,ta.D0,ta.rz]),rb=pj3([tb.rx,tb.D0,tb.rz]);
+  s+='<circle cx="'+ra[0].toFixed(1)+'" cy="'+ra[1].toFixed(1)+'" r="3" fill="'+ptColor(a.pt)+'"/><circle cx="'+rb[0].toFixed(1)+'" cy="'+rb[1].toFixed(1)+'" r="3" fill="'+ptColor(b.pt)+'"/>';
   s+='<text x="'+((ra[0]+rb[0])/2).toFixed(1)+'" y="'+((ra[1]+rb[1])/2-7).toFixed(1)+'" fill="var(--dim)" font-size="8.5" text-anchor="middle">release</text>';
   // decision window (23 ft)
-  if(TUN.dec){var pa0=tnPos(ta,23),pb0=tnPos(tb,23),pa=pj(pa0[0],pa0[1],23),pb=pj(pb0[0],pb0[1],23);
-    var mx=(pa[0]+pb[0])/2,my=(pa[1]+pb[1])/2,bw=Math.max(24,Math.abs(pa[0]-pb[0])+20),bh=Math.max(20,Math.abs(pa[1]-pb[1])+18);
+  if(TUN.dec){var pa0=tnPos(ta,23),pb0=tnPos(tb,23),pa=pj3([pa0[0],23,pa0[1]]),pb=pj3([pb0[0],23,pb0[1]]);
+    var mx=(pa[0]+pb[0])/2,my=(pa[1]+pb[1])/2,bw=Math.max(22,Math.abs(pa[0]-pb[0])+18),bh=Math.max(18,Math.abs(pa[1]-pb[1])+16);
     s+='<rect x="'+(mx-bw/2).toFixed(1)+'" y="'+(my-bh/2).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+bh.toFixed(1)+'" rx="6" fill="none" stroke="rgba(245,211,61,.55)" stroke-dasharray="4 3"/>';
     s+='<line x1="'+pa[0].toFixed(1)+'" y1="'+pa[1].toFixed(1)+'" x2="'+pb[0].toFixed(1)+'" y2="'+pb[1].toFixed(1)+'" stroke="rgba(245,211,61,.75)" stroke-width="1.4" stroke-dasharray="3 3"/>';
     s+='<text x="'+mx.toFixed(1)+'" y="'+(my-bh/2-5).toFixed(1)+'" fill="#f5d33d" font-size="11" font-weight="700" text-anchor="middle">'+r.tun.toFixed(1)+'″ @ 23 ft</text>';}
   // plate dots (movable)
-  var da=pj(ta.px,ta.pz,0),db=pj(tb.px,tb.pz,0);
+  var da=pj3([ta.px,0,ta.pz]),db=pj3([tb.px,0,tb.pz]);
   s+='<line x1="'+da[0].toFixed(1)+'" y1="'+da[1].toFixed(1)+'" x2="'+db[0].toFixed(1)+'" y2="'+db[1].toFixed(1)+'" stroke="rgba(255,255,255,.5)" stroke-dasharray="3 3"/>';
   s+='<text x="'+((da[0]+db[0])/2).toFixed(1)+'" y="'+((da[1]+db[1])/2+20).toFixed(1)+'" fill="var(--txt)" font-size="11" font-weight="700" text-anchor="middle">'+r.plate.toFixed(1)+'″ @ plate</text>';
   [[da,a,TUN.pair[0]],[db,b,TUN.pair[1]]].forEach(function(o){var d=o[0],pp=o[1],idx=o[2];
@@ -873,26 +887,33 @@ function tnRenderVisual(){
   s+='<rect x="'+(W/2-70)+'" y="10" width="140" height="30" rx="15" fill="'+tnCol(r.score)+'" opacity="0.16" stroke="'+tnCol(r.score)+'"/>';
   s+='<text x="'+(W/2)+'" y="30" fill="'+tnCol(r.score)+'" font-size="15" font-weight="800" text-anchor="middle">Tunnel: '+r.score+'</text>';
   s+='<text x="'+(W/2)+'" y="48" fill="var(--mut)" font-size="10" text-anchor="middle">Δ '+r.dmph.toFixed(1)+' mph · ratio '+r.ratio.toFixed(1)+'×'+(r.ov!=null?' · overlap '+Math.round(r.ov*100)+'%':'')+'</text>';
-  s+='<text x="12" y="'+(H-8)+'" fill="var(--dim)" font-size="8.5">Catcher’s view</text>';
+  s+='<text x="12" y="'+(H-8)+'" fill="var(--dim)" font-size="8.5">drag to orbit · 360° view</text>';
   panel.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div><span class="dot" style="background:'+ptColor(a.pt)+'"></span> '+a.pt+' '+fmt(a.velo)+' · '+fmt(a.ivb)+'″iVB '+fmt((a.hand==='L'?-1:1)*(a.hb||0))+'″HB &nbsp; <span class="dot" style="background:'+ptColor(b.pt)+'"></span> '+b.pt+' '+fmt(b.velo)+' · '+fmt((b.hand==='L'?-1:1)*(b.hb||0))+'″HB</div></div>'+s+'</svg>'+
   '<div style="display:flex;gap:5px;justify-content:center;align-items:center;margin-top:8px">'+
   '<button class="tnpanb" data-pan="L" style="background:#16203a;border:1px solid #2a3a5c;color:var(--txt);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px">◀</button>'+
   '<div style="display:flex;flex-direction:column;gap:4px"><button class="tnpanb" data-pan="U" style="background:#16203a;border:1px solid #2a3a5c;color:var(--txt);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:13px">▲</button><button class="tnpanb" data-pan="D" style="background:#16203a;border:1px solid #2a3a5c;color:var(--txt);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:13px">▼</button></div>'+
   '<button class="tnpanb" data-pan="R" style="background:#16203a;border:1px solid #2a3a5c;color:var(--txt);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px">▶</button>'+
-  '<button class="tnpanb" data-pan="0" style="background:#16203a;border:1px solid #2a3a5c;color:var(--mut);border-radius:6px;padding:5px 11px;cursor:pointer;font-size:11px;margin-left:10px">Reset view</button></div>';
+  '<button class="tnpanb" data-pan="0" style="background:#16203a;border:1px solid #2a3a5c;color:var(--mut);border-radius:6px;padding:5px 11px;cursor:pointer;font-size:11px;margin-left:10px">Catcher POV</button></div>';
   wireTunnel();
 }
 function wireTunnel(){var svg=el('tnSvg');if(!svg)return;var panel=el('tnVizPanel');
-  if(panel)panel.querySelectorAll('.tnpanb').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var d=b.getAttribute('data-pan'),st=30;
-    if(d==='L')TUN.panX=(TUN.panX||0)-st;else if(d==='R')TUN.panX=(TUN.panX||0)+st;
-    else if(d==='U')TUN.panY=(TUN.panY||0)-st;else if(d==='D')TUN.panY=(TUN.panY||0)+st;
-    else{TUN.panX=0;TUN.panY=0;}tnRenderVisual();});});
-  svg.querySelectorAll('.tndot').forEach(function(c){c.addEventListener('click',function(e){e.stopPropagation();TUN.sel=+c.getAttribute('data-i');tnRenderVisual();});});
-  svg.addEventListener('click',function(e){if(TUN.sel==null)return;var tf=TUN.tf,rect=svg.getBoundingClientRect(),sc=rect.width/tf.W;
-    var lx=(e.clientX-rect.left)/sc,ly=(e.clientY-rect.top)/sc;
-    var xcv=(lx-tf.CX)*tf.CAMZ/tf.FOC, z=tf.CAMY-(ly-tf.CY)*tf.CAMZ/tf.FOC;
-    var p=TUN.pitches[TUN.sel];p.px=Math.max(-2,Math.min(2,-xcv));p.pz=Math.max(0.8,Math.min(4.2,z));tnRenderAll();});
+  if(panel)panel.querySelectorAll('.tnpanb').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var d=b.getAttribute('data-pan'),c=TUN.cam;
+    if(d==='L')c.az-=0.26;else if(d==='R')c.az+=0.26;
+    else if(d==='U')c.el=Math.min(1.2,c.el+0.18);else if(d==='D')c.el=Math.max(-1.2,c.el-0.18);
+    else{c.az=0;c.el=0.16;}tnRenderVisual();});});
+  svg.querySelectorAll('.tndot').forEach(function(c){c.addEventListener('pointerdown',function(e){e.stopPropagation();TUN.sel=+c.getAttribute('data-i');tnRenderVisual();});});
+  svg.addEventListener('pointerdown',function(e){var rect=svg.getBoundingClientRect();TUN._drag={x:e.clientX,y:e.clientY,moved:0,rect:rect};
+    function mv(ev){var dx=ev.clientX-TUN._drag.x,dy=ev.clientY-TUN._drag.y;TUN._drag.x=ev.clientX;TUN._drag.y=ev.clientY;
+      if(Math.abs(dx)+Math.abs(dy)>0){TUN._drag.moved+=Math.abs(dx)+Math.abs(dy);var c=TUN.cam;c.az+=dx*0.008;c.el=Math.max(-1.2,Math.min(1.2,c.el-dy*0.008));tnRenderVisual();}}
+    function upp(ev){window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',upp);
+      if(TUN._drag.moved<3&&TUN.sel!=null)tnPlateMove(TUN._drag.rect,ev.clientX,ev.clientY);TUN._drag=null;}
+    window.addEventListener('pointermove',mv);window.addEventListener('pointerup',upp);});
 }
+function tnPlateMove(rect,cx,cy){var tf=TUN.tf,sc=rect.width/tf.W,lx=(cx-rect.left)/sc,ly=(cy-rect.top)/sc,a=(lx-tf.CX)/tf.FOC,bb=-(ly-tf.CY)/tf.FOC;
+  var dir=[tf.f[0]+tf.rt[0]*a+tf.up[0]*bb, tf.f[1]+tf.rt[1]*a+tf.up[1]*bb, tf.f[2]+tf.rt[2]*a+tf.up[2]*bb];
+  if(Math.abs(dir[1])<1e-4)return;var t=-tf.C[1]/dir[1];if(t<=0)return;
+  var xw=tf.C[0]+t*dir[0],zw=tf.C[2]+t*dir[2],p=TUN.pitches[TUN.sel];
+  p.px=Math.max(-2,Math.min(2,-xw));p.pz=Math.max(0.8,Math.min(4.2,zw));tnRenderAll();}
 /* ---- global search ---- */
 function buildSearch(){
   var gs=el('gsearch'),sg=el('gsug');
