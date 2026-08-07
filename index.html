@@ -838,7 +838,7 @@ function tnRenderVisual(){
   var panel=el('tnVizPanel');if(!panel||!TUN.pair)return;var ps=TUN.pitches,a=ps[TUN.pair[0]],b=ps[TUN.pair[1]];if(!a||!b)return;
   var r=tnScore(a,b);
   // ---- orbiting 3D camera · world axes X=horizontal(+1B/right) Y=depth(plate→mound) Z=height ----
-  var W=460,H=440,FOC=880,CX=W/2,CY=170,PIV=[0,27,2.7];
+  var W=460,H=470,FOC=1320,CX=W/2,CY=195,PIV=[0,27,2.7];
   var cam=TUN.cam||(TUN.cam={az:0,el:0.16,R:60});
   var ce=Math.cos(cam.el),se=Math.sin(cam.el),f=[ce*Math.sin(cam.az),ce*Math.cos(cam.az),-se];
   var C=[PIV[0]-cam.R*f[0],PIV[1]-cam.R*f[1],PIV[2]-cam.R*f[2]];
