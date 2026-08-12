@@ -504,14 +504,21 @@ function svgUsage(stbl){
   });
   return s+'</div>';}
 function havaaTxt(r){if(r.havaa==null)return '—';var hd=r.hd,c=hd>=0?'var(--acc)':'#ff8f8f',sn=hd>=0?'+':'';return fmt(r.havaa)+' <span style="font-size:9px;color:'+c+'">'+sn+fmt(hd)+'</span>';}
+function haaTxt(r){return r.haa==null?'—':fmt(r.haa)+'°';}
+// Horizontal Approach Angle (deg), computed client-side from per-pitch columns.
+function haaFor(rep,ptName,gi,ext){var pti=PTIDX.indexOf(ptName);if(pti<0||!rep.pt)return null;var D0=60.5-(ext||6.2),s=0,n=0;
+  for(var k=0;k<rep.pt.length;k++){if(rep.pt[k]!==pti)continue;if(gi!=null&&rep.gi[k]!==gi)continue;
+    var px=rep.px[k],rs=rep.rs[k],hb=rep.hb[k];if(px===NA||rs===NA||hb===NA)continue;
+    s+=Math.atan((px/10-rs/100+(hb/10)/12)/D0);n++;}
+  return n?s/n*180/Math.PI:null;}
 function pv(v){return v==null?'—':v+'%';}
 function reptable(rows,g){
-  var head=g?['Pitch','Ct','Use%','Stuff+','Velo','Max','Spin','IVB','HB','Ext','RelH','RelS','HAVAA','xwOBA','Zone%','Whiff%','Chase%','IZ Whf%']
-           :['Pitch','Ct','Pit%','Velo','Max','iVB','HB','Spin','HAVAA','vRel','hRel','Ext','Zone%','Chase%','Whiff%'];
+  var head=g?['Pitch','Ct','Use%','Stuff+','Velo','Max','Spin','IVB','HB','Ext','RelH','RelS','HAVAA','HAA','xwOBA','Zone%','Whiff%','Chase%','IZ Whf%']
+           :['Pitch','Ct','Pit%','Velo','Max','iVB','HB','Spin','HAVAA','HAA','vRel','hRel','Ext','Zone%','Chase%','Whiff%'];
   var h='<div class="rpt-scroll" style="overflow:auto"><table style="font-size:12px;white-space:nowrap"><thead><tr>'+head.map(function(x){return '<th>'+x+'</th>';}).join('')+'</tr></thead><tbody>';
   rows.forEach(function(r){var pill='<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+ptColor(r.pt)+';margin-right:6px"></span>'+r.pt;
-    var c=g?[pill,r.n,r.u+'%',plusChip(r.stuff),fmt(r.velo),fmt(r.mx),r.spin||'—',fmt(r.ivb),fmt(r.hb),fmt(r.ext),fmt(r.relh),fmt(r.rels),havaaTxt(r),(r.xw==null?'—':r.xw.toFixed(3)),r.zone+'%',pv(r.whiff),pv(r.chase),pv(r.izw)]
-             :[pill,r.n,r.u+'%',fmt(r.velo),fmt(r.mx),fmt(r.ivb),fmt(r.hb),r.spin||'—',havaaTxt(r),fmt(r.relh),fmt(r.rels),fmt(r.ext),r.zone+'%',pv(r.chase),pv(r.whiff)];
+    var c=g?[pill,r.n,r.u+'%',plusChip(r.stuff),fmt(r.velo),fmt(r.mx),r.spin||'—',fmt(r.ivb),fmt(r.hb),fmt(r.ext),fmt(r.relh),fmt(r.rels),havaaTxt(r),haaTxt(r),(r.xw==null?'—':r.xw.toFixed(3)),r.zone+'%',pv(r.whiff),pv(r.chase),pv(r.izw)]
+             :[pill,r.n,r.u+'%',fmt(r.velo),fmt(r.mx),fmt(r.ivb),fmt(r.hb),r.spin||'—',havaaTxt(r),haaTxt(r),fmt(r.relh),fmt(r.rels),fmt(r.ext),r.zone+'%',pv(r.chase),pv(r.whiff)];
     h+='<tr style="cursor:default">'+c.map(function(v,i){return '<td class="mono"'+(i===0?' style="font-family:var(--body);white-space:nowrap"':'')+'>'+v+'</td>';}).join('')+'</tr>';});
   return h+'</tbody></table></div>';}
 var LEGEND='<div class="legend" style="gap:16px;flex-wrap:wrap"><span><svg width="12" height="12"><circle cx="6" cy="6" r="3.4" fill="none" stroke="var(--mut)" stroke-width="1.4"/></svg> Ball</span><span><svg width="12" height="12"><circle cx="6" cy="6" r="3.4" fill="var(--mut)"/></svg> Called strike</span><span><svg width="12" height="12"><path d="M2 2 L10 10 M10 2 L2 10" stroke="var(--mut)" stroke-width="1.6"/></svg> Swinging strike</span><span><svg width="12" height="12"><path d="M6 2 L10 10 L2 10 Z" fill="var(--mut)"/></svg> Foul</span><span><svg width="12" height="12"><rect x="2.6" y="2.6" width="6.8" height="6.8" fill="var(--mut)"/></svg> In play</span></div>';
@@ -558,6 +565,7 @@ function renderGame(gi){
   h+='<div class="panel" style="text-align:center"><div class="ht" style="font-family:var(--disp);font-weight:600;margin-bottom:6px">Pitch breaks</div>'+svgMove(rep,gi)+'</div>';
   h+='<div class="panel" style="text-align:center"><div class="ht" style="font-family:var(--disp);font-weight:600;margin-bottom:6px">Release point</div>'+svgRel(rep,gi)+'</div>';
   h+='</div>'+LEGEND;
+  gm.tbl.forEach(function(r){r.haa=haaFor(rep,r.pt,gi,r.ext);});
   h+='<div class="panel" style="margin-top:16px">'+reptable(gm.tbl,true)+'</div>';
   el('pDetail').innerHTML=h;
 }
@@ -571,6 +579,7 @@ function renderSeason(){
   h+='<div class="panel" style="text-align:center"><div class="ht" style="font-family:var(--disp);font-weight:600;margin-bottom:8px">Pitch breaks</div>'+svgMove(rep,null)+'</div>';
   h+='<div class="panel"><div class="ht" style="font-family:var(--disp);font-weight:600;margin-bottom:8px">Pitch usage</div>'+svgUsage(rep.stbl)+'</div>';
   h+='</div>';
+  rep.stbl.forEach(function(r){r.haa=haaFor(rep,r.pt,null,r.ext);});
   h+='<div class="panel" style="margin-top:16px">'+reptable(rep.stbl,false)+'</div>';
   el('pDetail').innerHTML=h;
 }
