@@ -126,7 +126,7 @@ tr:last-child td{border-bottom:none}
       <a data-go="leaders"><i class="ti ti-trophy"></i> Leaderboards</a>
       <span class="lbl">Models</span>
       <a data-go="models"><i class="ti ti-chart-dots"></i> Stuff+ / Command+</a>
-      <a data-go="comps"><i class="ti ti-arrows-shuffle"></i> MLB comps</a>
+      <a data-go="comps"><i class="ti ti-flask"></i> Arsenal Lab</a>
       <a data-go="heat"><i class="ti ti-grid-dots"></i> Heatmaps</a>
       <a data-go="tunnel"><i class="ti ti-tournament"></i> Tunneling</a>
       <span class="lbl">Info</span>
@@ -146,7 +146,7 @@ tr:last-child td{border-bottom:none}
         <h1>See the game in <span class="g">pure signal.</span></h1>
         <p>Pro-grade TrackMan analytics on every D1 arm — arsenals, FanGraphs-calibrated Stuff+ &amp; Command+, MLB comps, heatmaps and full outing reports, from the 2026 season.</p>
         <button class="btn" data-go="pitchers"><i class="ti ti-bolt"></i> Open pitcher database</button>
-        <button class="btn ghost" data-go="comps"><i class="ti ti-arrows-shuffle"></i> Find an MLB comp</button>
+        <button class="btn ghost" data-go="comps"><i class="ti ti-flask"></i> Open Arsenal Lab</button>
       </div>
       <div class="kpis">
         <div class="kpi"><div class="n" id="kP">—</div><div class="k">Pitchers tracked</div></div>
@@ -226,8 +226,8 @@ tr:last-child td{border-bottom:none}
 
     <!-- COMPS -->
     <section data-p="comps">
-      <h2 class="sec">Arsenal DNA — MLB comps</h2>
-      <p class="sub">Whole-arsenal similarity — pitch mix &amp; usage, velo, movement and spin. Top-3 MLB arms (2024–25, ≥500 pitches, same hand).</p>
+      <h2 class="sec">Arsenal Lab</h2>
+      <p class="sub">Break lines from the fastball (or sinker) to each off-speed, plus whole-arsenal MLB comps — pitch mix &amp; usage, velo, movement and spin (2024–25, ≥500 pitches, same hand).</p>
       <div class="panel" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
         <i class="ti ti-target" style="color:var(--acc)"></i>
         <input id="cSearch" class="sel" style="flex:1;min-width:200px" placeholder="Search a college arm…">
@@ -631,6 +631,44 @@ function svgArsenal(ars){
     s+='<text x="'+x.toFixed(1)+'" y="'+(y+3).toFixed(1)+'" text-anchor="middle" font-size="8" font-weight="700" fill="#0a1020">'+abbr(a.pt)+'</text>';});
   return s+'</svg>';
 }
+/* ---- Break Lines: FB/SI → off-speed movement vectors ---- */
+var BLREF='FB',BLDATA=null;
+function svgBreakLines(){
+  if(!BLDATA)return '';
+  var rep=BLDATA.rep,cars=BLDATA.cars,vflip=BLDATA.vflip;
+  var W=560,H=470,pad=42,L=-26,U=26;
+  function sx(v){return pad+(v-L)/(U-L)*(W-2*pad);}
+  function sy(v){return H-pad-(v-L)/(U-L)*(H-2*pad);}
+  function cl(v){return Math.max(L,Math.min(U,v));}
+  var s='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:560px;display:block;margin:0 auto;touch-action:none">';
+  for(var g=-20;g<=20;g+=10){
+    s+='<line x1="'+sx(g).toFixed(1)+'" y1="'+pad+'" x2="'+sx(g).toFixed(1)+'" y2="'+(H-pad)+'" stroke="'+(g===0?'var(--line2)':'var(--line)')+'"/>';
+    s+='<line x1="'+pad+'" y1="'+sy(g).toFixed(1)+'" x2="'+(W-pad)+'" y2="'+sy(g).toFixed(1)+'" stroke="'+(g===0?'var(--line2)':'var(--line)')+'"/>';
+    if(g!==0){s+='<text x="'+sx(g).toFixed(1)+'" y="'+(H-pad+15)+'" text-anchor="middle" font-size="9" fill="var(--dim)">'+g+'</text>';
+      s+='<text x="'+(pad-7)+'" y="'+(sy(g)+3).toFixed(1)+'" text-anchor="end" font-size="9" fill="var(--dim)">'+g+'</text>';}}
+  s+='<text x="'+(W-pad)+'" y="'+(sy(0)-6).toFixed(1)+'" text-anchor="end" font-size="10" fill="var(--mut)">HB″ '+(BLDATA.hand==='R'?'· Arm →':'· ← Arm')+'</text>';
+  s+='<text x="'+(sx(0)+6).toFixed(1)+'" y="'+(pad+9)+'" font-size="10" fill="var(--mut)">↑ iVB″</text>';
+  var want={};cars.forEach(function(c){want[PTIDX.indexOf(c.pt)]=true;});
+  if(rep&&rep.hb)for(var k=0;k<rep.hb.length;k++){var pti=rep.pt[k];if(!want[pti])continue;var hb=rep.hb[k],ivb=rep.ivb[k];if(hb===NA||ivb===NA)continue;
+    s+='<circle cx="'+sx(cl(vflip*hb/10)).toFixed(1)+'" cy="'+sy(cl(ivb/10)).toFixed(1)+'" r="2" fill="'+ptColor(PTIDX[pti])+'" opacity="0.26"/>';}
+  var refName=BLREF==='SI'?'Sinker':'4-Seam',refA=null;cars.forEach(function(c){if(c.pt===refName)refA=c;});
+  if(refA&&refA.hb!=null){var rx=sx(cl(refA.hb)),ry=sy(cl(refA.ivb));
+    cars.forEach(function(c){if(c===refA||c.hb==null||c.ivb==null)return;var x=sx(cl(c.hb)),y=sy(cl(c.ivb));
+      s+='<line x1="'+rx.toFixed(1)+'" y1="'+ry.toFixed(1)+'" x2="'+x.toFixed(1)+'" y2="'+y.toFixed(1)+'" stroke="'+ptColor(c.pt)+'" stroke-width="2.6" opacity="0.92" stroke-linecap="round"/>';});}
+  cars.forEach(function(c){if(c.hb==null||c.ivb==null)return;var x=sx(cl(c.hb)),y=sy(cl(c.ivb)),isRef=(c.pt===refName);
+    s+='<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="'+(isRef?11:8.5)+'" fill="'+ptColor(c.pt)+'" stroke="'+(isRef?'#fff':'#0a1020')+'" stroke-width="'+(isRef?2:1.4)+'"/>';
+    s+='<text x="'+x.toFixed(1)+'" y="'+(y+3).toFixed(1)+'" text-anchor="middle" font-size="8.5" font-weight="700" fill="#0a1020">'+abbr(c.pt)+'</text>';});
+  return s+'</svg>';
+}
+function renderBLPanel(){
+  if(!BLDATA||!el('blPanel'))return;
+  var hasFB=BLDATA.cars.some(function(c){return c.pt==='4-Seam';}),hasSI=BLDATA.cars.some(function(c){return c.pt==='Sinker';});
+  var head='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px">'+
+    '<div><h3 style="margin:0"><i class="ti ti-vector-triangle" style="color:var(--acc)"></i> Break lines</h3><div class="mut" style="font-size:12px;margin-top:2px">Movement from the '+(BLREF==='SI'?'sinker':'fastball')+' (white ring) to each off-speed — longer line = more separation.</div></div>'+
+    '<div class="seg" id="blRef"><button data-ref="FB" class="'+(BLREF==='FB'?'on':'')+'"'+(hasFB?'':' disabled')+'>vs Fastball</button><button data-ref="SI" class="'+(BLREF==='SI'?'on':'')+'"'+(hasSI?'':' disabled')+'>vs Sinker</button></div></div>';
+  el('blPanel').innerHTML=head+svgBreakLines();
+  el('blPanel').querySelectorAll('#blRef button').forEach(function(b){b.onclick=function(){if(b.hasAttribute('disabled'))return;BLREF=b.getAttribute('data-ref');renderBLPanel();};});
+}
 function arsTable(ars){
   var h='<table class="dnatab"><thead><tr><th>Pitch</th><th>Use</th><th>Velo</th><th>iVB</th><th>HB</th><th>Spin</th></tr></thead><tbody>';
   ars.forEach(function(a){h+='<tr><td><span class="dot" style="background:'+ptColor(a.pt)+'"></span>'+a.pt+'</td><td>'+Math.round(a.usage||0)+'%</td><td>'+fmt(a.velo)+'</td><td>'+fmt(a.ivb)+'</td><td>'+fmt(a.hb)+'</td><td>'+(a.spin||'—')+'</td></tr>';});
@@ -649,19 +687,23 @@ function buildComps(){
 }
 function renderComp(i){
   var p=P[i];if(!p)return;el('cOut').innerHTML='<div class="mut mono">Loading…</div>';
-  Promise.all([getDetail(p),loadMLB()]).then(function(a){
-    var det=a[0];
+  Promise.all([getDetail(p),loadMLB(),getReport(p)]).then(function(a){
+    var det=a[0],rep=a[2];
     // DISPLAY orientation: show lefties in true LHP view (mirror HB). Matching stays arm-side-normalized.
     var vflip=(p.hand==='R'?1:-1);
     function fx(ars){return ars.map(function(x){return {pt:x.pt,usage:x.usage,velo:x.velo,ivb:x.ivb,hb:(x.hb==null?null:vflip*x.hb),spin:x.spin};});}
     var cars=fx(det.ars).filter(function(x){return (x.usage||0)>=3;});
     var relTxt=p.hand==='R'?'RHP':'LHP';if(p.rh)relTxt+=' · '+p.rh+' ft release';
     var top='<div class="dnatop">'+dnaCard(p.name,p.tn+' · '+relTxt,null,null,cars)+'</div>';
+    BLDATA={rep:rep,cars:cars,vflip:vflip,hand:p.hand};
+    var hasFB=cars.some(function(c){return c.pt==='4-Seam';}),hasSI=cars.some(function(c){return c.pt==='Sinker';});
+    BLREF=hasFB?'FB':(hasSI?'SI':'FB');
     var ranks=['#1 MATCH','#2 MATCH','#3 MATCH'];
     var cards=(p.c3||[]).map(function(c,idx){var m=MLBW[c[0]];if(!m)return '';
       var sub=m.team+' · '+(m.hand==='R'?'RHP':'LHP')+(m.relh?' · '+m.relh+' ft':'');
       return dnaCard(fmtName(m.name),sub,c[1],ranks[idx],fx(m.ars));}).join('');
-    el('cOut').innerHTML=top+(cards?'<div class="dnagrid">'+cards+'</div>':'<div class="mut">No qualifying comp found.</div>');
+    el('cOut').innerHTML=top+'<div class="panel" id="blPanel" style="margin-bottom:16px"></div>'+'<h3 style="margin:2px 0 12px"><i class="ti ti-arrows-shuffle" style="color:var(--acc)"></i> Whole-arsenal MLB comps</h3>'+(cards?'<div class="dnagrid">'+cards+'</div>':'<div class="mut">No qualifying comp found.</div>');
+    renderBLPanel();
   });
 }
 
