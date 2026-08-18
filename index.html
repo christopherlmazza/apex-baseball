@@ -632,7 +632,22 @@ function svgArsenal(ars){
   return s+'</svg>';
 }
 /* ---- Break Lines: FB/SI → off-speed movement vectors ---- */
-var BLREF='FB',BLDATA=null;
+var BLREF='FB',BLDATA=null,BLQUERY=null,POP=null;
+function ensurePop(){
+  if(POP)return Promise.resolve(POP);
+  var shards=[];P.forEach(function(p){if(shards.indexOf(p.shard)<0)shards.push(p.shard);});
+  return Promise.all(shards.map(function(s){return SHARDCACHE[s]?Promise.resolve(SHARDCACHE[s]):fetch('p'+s+'.json?v=6').then(function(r){return r.json();}).then(function(arr){SHARDCACHE[s]=arr;return arr;});})).then(function(){
+    POP=[];P.forEach(function(p){var arr=SHARDCACHE[p.shard];if(!arr)return;var d=arr[p.i-SHARDBASE[p.shard]];if(!d||!d.ars)return;var t={};d.ars.forEach(function(a){if(a.ivb==null||a.hb==null||(a.usage||0)<3)return;t[a.pt]={ivb:a.ivb,hb:a.hb};});if(t['4-Seam']||t['Sinker'])POP.push({hand:p.hand,t:t});});
+    return POP;});
+}
+function popCohort(hand,refName,qivb,qhb){
+  if(!POP)return null;var pool=POP.filter(function(a){return a.hand===hand&&a.t[refName];});if(pool.length<8)return null;
+  var h=3.0,W=0;
+  for(var it=0;it<7;it++){W=0;pool.forEach(function(a){var r=a.t[refName],d2=(r.ivb-qivb)*(r.ivb-qivb)+(r.hb-qhb)*(r.hb-qhb);a._w=Math.exp(-d2/(2*h*h));W+=a._w;});if(W>=25)break;h*=1.4;}
+  var offs={};pool.forEach(function(a){var w=a._w;if(w<0.03)return;for(var pt in a.t){var o=offs[pt]||(offs[pt]={sw:0,si:0,sh:0});o.sw+=w;o.si+=w*a.t[pt].ivb;o.sh+=w*a.t[pt].hb;}});
+  var avg={};for(var pt in offs){var o=offs[pt];if(o.sw>0.5)avg[pt]={ivb:o.si/o.sw,hb:o.sh/o.sw};}
+  return {n:Math.round(W),avg:avg};
+}
 function svgBreakLines(){
   if(!BLDATA)return '';
   var rep=BLDATA.rep,cars=BLDATA.cars,vflip=BLDATA.vflip;
@@ -640,7 +655,7 @@ function svgBreakLines(){
   function sx(v){return pad+(v-L)/(U-L)*(W-2*pad);}
   function sy(v){return H-pad-(v-L)/(U-L)*(H-2*pad);}
   function cl(v){return Math.max(L,Math.min(U,v));}
-  var s='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:560px;display:block;margin:0 auto;touch-action:none">';
+  var s='<svg id="blSvg" viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:560px;display:block;margin:0 auto;touch-action:none;cursor:crosshair">';
   for(var g=-20;g<=20;g+=10){
     s+='<line x1="'+sx(g).toFixed(1)+'" y1="'+pad+'" x2="'+sx(g).toFixed(1)+'" y2="'+(H-pad)+'" stroke="'+(g===0?'var(--line2)':'var(--line)')+'"/>';
     s+='<line x1="'+pad+'" y1="'+sy(g).toFixed(1)+'" x2="'+(W-pad)+'" y2="'+sy(g).toFixed(1)+'" stroke="'+(g===0?'var(--line2)':'var(--line)')+'"/>';
@@ -651,6 +666,13 @@ function svgBreakLines(){
   var want={};cars.forEach(function(c){want[PTIDX.indexOf(c.pt)]=true;});
   if(rep&&rep.hb)for(var k=0;k<rep.hb.length;k++){var pti=rep.pt[k];if(!want[pti])continue;var hb=rep.hb[k],ivb=rep.ivb[k];if(hb===NA||ivb===NA)continue;
     s+='<circle cx="'+sx(cl(vflip*hb/10)).toFixed(1)+'" cy="'+sy(cl(ivb/10)).toFixed(1)+'" r="2" fill="'+ptColor(PTIDX[pti])+'" opacity="0.26"/>';}
+  // field-average overlay: cohort of same-hand arms near the query fastball shape
+  if(POP&&BLQUERY){var _rf=BLREF==='SI'?'Sinker':'4-Seam',co=popCohort(BLDATA.hand,_rf,BLQUERY.ivb,BLQUERY.hb),qx=sx(cl(vflip*BLQUERY.hb)),qy=sy(cl(BLQUERY.ivb));
+    if(co){Object.keys(co.avg).forEach(function(pt){if(pt===_rf)return;var a=co.avg[pt],x=sx(cl(vflip*a.hb)),y=sy(cl(a.ivb));
+      s+='<line x1="'+qx.toFixed(1)+'" y1="'+qy.toFixed(1)+'" x2="'+x.toFixed(1)+'" y2="'+y.toFixed(1)+'" stroke="'+ptColor(pt)+'" stroke-width="1.6" stroke-dasharray="5 4" opacity="0.72"/>';
+      s+='<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="6" fill="none" stroke="'+ptColor(pt)+'" stroke-width="2" opacity="0.85"/>';});
+      s+='<circle cx="'+qx.toFixed(1)+'" cy="'+qy.toFixed(1)+'" r="9" fill="none" stroke="#fff" stroke-width="1.4" stroke-dasharray="3 2" opacity="0.85"/>';
+      s+='<text x="'+qx.toFixed(1)+'" y="'+(qy-13).toFixed(1)+'" text-anchor="middle" font-size="9" fill="var(--mut)">field · '+co.n+' arms</text>';}}
   var refName=BLREF==='SI'?'Sinker':'4-Seam',refA=null;cars.forEach(function(c){if(c.pt===refName)refA=c;});
   if(refA&&refA.hb!=null){var rx=sx(cl(refA.hb)),ry=sy(cl(refA.ivb));
     cars.forEach(function(c){if(c===refA||c.hb==null||c.ivb==null)return;var x=sx(cl(c.hb)),y=sy(cl(c.ivb));
@@ -663,11 +685,19 @@ function svgBreakLines(){
 function renderBLPanel(){
   if(!BLDATA||!el('blPanel'))return;
   var hasFB=BLDATA.cars.some(function(c){return c.pt==='4-Seam';}),hasSI=BLDATA.cars.some(function(c){return c.pt==='Sinker';});
+  function refCarShape(){var rc=BLDATA.cars.filter(function(c){return c.pt===(BLREF==='SI'?'Sinker':'4-Seam');})[0];return rc?{ivb:rc.ivb,hb:BLDATA.vflip*rc.hb}:null;}
   var head='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px">'+
-    '<div><h3 style="margin:0"><i class="ti ti-vector-triangle" style="color:var(--acc)"></i> Break lines</h3><div class="mut" style="font-size:12px;margin-top:2px">Movement from the '+(BLREF==='SI'?'sinker':'fastball')+' (white ring) to each off-speed — longer line = more separation.</div></div>'+
+    '<div><h3 style="margin:0"><i class="ti ti-vector-triangle" style="color:var(--acc)"></i> Break lines</h3><div class="mut" style="font-size:12px;margin-top:2px;max-width:640px">Solid = this arm. Dashed = field average for D1 arms with the same '+(BLREF==='SI'?'sinker':'fastball')+' shape. Click the plot to explore any '+(BLREF==='SI'?'sinker':'fastball')+' shape'+(POP?'':' · loading field…')+'.</div></div>'+
     '<div class="seg" id="blRef"><button data-ref="FB" class="'+(BLREF==='FB'?'on':'')+'"'+(hasFB?'':' disabled')+'>vs Fastball</button><button data-ref="SI" class="'+(BLREF==='SI'?'on':'')+'"'+(hasSI?'':' disabled')+'>vs Sinker</button></div></div>';
   el('blPanel').innerHTML=head+svgBreakLines();
-  el('blPanel').querySelectorAll('#blRef button').forEach(function(b){b.onclick=function(){if(b.hasAttribute('disabled'))return;BLREF=b.getAttribute('data-ref');renderBLPanel();};});
+  el('blPanel').querySelectorAll('#blRef button').forEach(function(b){b.onclick=function(){if(b.hasAttribute('disabled'))return;BLREF=b.getAttribute('data-ref');BLQUERY=refCarShape();renderBLPanel();};});
+  var svg=el('blSvg');
+  if(svg)svg.addEventListener('click',function(e){var r=svg.getBoundingClientRect(),W=560,H=470,pad=42,L=-26,U=26,sc=r.width/W;
+    var px=(e.clientX-r.left)/sc,py=(e.clientY-r.top)/sc;
+    var dhb=L+(px-pad)/(W-2*pad)*(U-L),divb=L+(H-pad-py)/(H-2*pad)*(U-L);
+    if(dhb<L||dhb>U||divb<L||divb>U)return;
+    BLQUERY={ivb:divb,hb:BLDATA.vflip*dhb};renderBLPanel();});
+  if(!POP)ensurePop().then(function(){renderBLPanel();});
 }
 function arsTable(ars){
   var h='<table class="dnatab"><thead><tr><th>Pitch</th><th>Use</th><th>Velo</th><th>iVB</th><th>HB</th><th>Spin</th></tr></thead><tbody>';
@@ -698,6 +728,8 @@ function renderComp(i){
     BLDATA={rep:rep,cars:cars,vflip:vflip,hand:p.hand};
     var hasFB=cars.some(function(c){return c.pt==='4-Seam';}),hasSI=cars.some(function(c){return c.pt==='Sinker';});
     BLREF=hasFB?'FB':(hasSI?'SI':'FB');
+    var _rc=cars.filter(function(c){return c.pt===(BLREF==='SI'?'Sinker':'4-Seam');})[0];
+    BLQUERY=_rc?{ivb:_rc.ivb,hb:vflip*_rc.hb}:null;
     var ranks=['#1 MATCH','#2 MATCH','#3 MATCH'];
     var cards=(p.c3||[]).map(function(c,idx){var m=MLBW[c[0]];if(!m)return '';
       var sub=m.team+' · '+(m.hand==='R'?'RHP':'LHP')+(m.relh?' · '+m.relh+' ft':'');
