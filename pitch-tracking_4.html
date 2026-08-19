@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SHU Pitch Tracking</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --line:#2b3444;
+    --ink:#e8edf4; --dim:#8b97a7; --red:#c8102e; --red2:#e11d3a;
+    --green:#2ea043; --amber:#d29922; --blue:#388bfd;
+    --tile:#20293a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-tap-highlight-color:transparent;font-size:16px}
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#11161f,#0d1117);border-bottom:1px solid var(--line);padding:10px 14px;display:flex;align-items:center;gap:12px}
+  header .logo{font-weight:800;letter-spacing:.5px;font-size:18px}
+  header .logo b{color:var(--red2)}
+  header .sess{margin-left:auto;font-size:12px;color:var(--dim);text-align:right;line-height:1.3}
+  nav{display:flex;gap:4px;background:var(--panel);border-bottom:1px solid var(--line);padding:6px;position:sticky;top:49px;z-index:19;overflow-x:auto}
+  nav button{flex:1;padding:11px 6px;border:0;background:transparent;color:var(--dim);font-weight:700;font-size:13px;border-radius:9px;cursor:pointer;white-space:nowrap}
+  nav button.active{background:var(--red);color:#fff}
+  main{padding:14px;max-width:1100px;margin:0 auto}
+  .view{display:none}
+  .view.active{display:block}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+  .card h3{margin:0 0 10px;font-size:13px;letter-spacing:.6px;text-transform:uppercase;color:var(--dim)}
+  label.fld{display:block;font-size:12px;color:var(--dim);margin:0 0 4px}
+  select,input[type=text],input[type=date],input[type=number]{width:100%;padding:11px;background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:10px;font-size:15px}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .row>*{flex:1;min-width:140px}
+  button.btn{background:var(--panel2);border:1px solid var(--line);color:var(--ink);padding:11px 14px;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px}
+  button.btn.red{background:var(--red);border-color:var(--red);color:#fff}
+  button.btn.ghost{background:transparent}
+  button.btn.sm{padding:7px 10px;font-size:12px}
+  .muted{color:var(--dim);font-size:13px}
+  .pill{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;color:var(--dim)}
+  .pill.on{background:var(--red);border-color:var(--red);color:#fff}
+  .pill.click{cursor:pointer}
+
+  /* Charting */
+  .countbar{display:flex;align-items:center;gap:14px;justify-content:center;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px;flex-wrap:wrap}
+  .countbar .big{font-size:40px;font-weight:800;line-height:1}
+  .countbar .lbl{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;text-align:center}
+  .countbar .pa{font-size:12px;color:var(--dim)}
+  .handtog{display:flex;gap:6px}
+  .handtog button{padding:8px 14px;border-radius:10px;border:1px solid var(--line);background:var(--tile);color:var(--dim);font-weight:800;cursor:pointer;font-size:14px}
+  .handtog button.on{background:var(--red);border-color:var(--red);color:#fff}
+  .tilegrid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:8px}
+  .tile{background:var(--tile);border:1px solid var(--line);border-radius:13px;padding:16px 6px;text-align:center;font-weight:800;font-size:15px;cursor:pointer;user-select:none;transition:transform .04s}
+  .tile:active{transform:scale(.95)}
+  .tile.sel{outline:3px solid var(--red2);outline-offset:-1px}
+  .tile .dot{display:block;width:14px;height:14px;border-radius:50%;margin:0 auto 6px}
+  .tile.small{padding:13px 6px;font-size:13px}
+  .stripe{height:6px;border-radius:4px;margin:2px 0 10px;background:linear-gradient(90deg,var(--red),var(--amber),var(--green))}
+  .seqwrap{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .seq{font-size:12px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:5px 8px;color:var(--dim)}
+  .seq b{color:var(--ink)}
+
+  /* zone grid (charting input) */
+  .zonewrap{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .zone{--z:230px;position:relative;width:var(--z);height:var(--z);display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(5,1fr);gap:3px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px}
+  .zc{border-radius:6px;background:#141b27;border:1px solid #222c3c;cursor:pointer}
+  .zc:active{transform:scale(.94)}
+  .zc.sel{background:var(--red2);border-color:var(--red2)}
+  .zbox{position:absolute;pointer-events:none;border:2px dashed #56617a;border-radius:6px}
+  .zlbl{font-size:11px;color:var(--dim)}
+
+  /* tables */
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  th{color:var(--dim);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+  .tblscroll{overflow-x:auto}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px}
+  .kpi{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .kpi .v{font-size:24px;font-weight:800}
+  .kpi .k{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
+  .kpi .k small{text-transform:none;letter-spacing:0;display:block;color:#6f7c8d;font-size:10px}
+  .bar{height:8px;background:var(--line);border-radius:6px;overflow:hidden;margin-top:5px}
+  .bar>span{display:block;height:100%;background:var(--red2)}
+  .tag{font-size:11px;padding:2px 7px;border-radius:999px;font-weight:700}
+  .tag.ok{background:#12331c;color:#5ad07a;border:1px solid #1f5b32}
+  .tag.warn{background:#3a2a10;color:#e7b64d;border:1px solid #6b4d17}
+  .tag.tm{background:#10233a;color:#6bb1ff;border:1px solid #1d456e}
+  .hint{font-size:12px;color:var(--dim);margin-top:6px;line-height:1.5}
+  .empty{text-align:center;color:var(--dim);padding:30px 10px}
+  .flexb{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .spacer{flex:1}
+
+  /* heatmaps */
+  .hmgrid{display:flex;gap:16px;flex-wrap:wrap}
+  .hmcard{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;width:172px}
+  .hmcard .ttl{font-size:12px;font-weight:800;display:flex;align-items:center;gap:6px;margin-bottom:6px}
+  .heatwrap{position:relative;width:150px;height:165px;background:#fff;border-radius:6px;overflow:hidden;margin:0 auto}
+  .heatwrap canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .szbox{position:absolute;pointer-events:none;border:2px solid #111}
+  .dzbox{position:absolute;pointer-events:none;border:2px dashed #111}
+  .hmcard .sub{font-size:11px;color:var(--dim);margin-top:6px;text-align:center}
+  .pitcherlink{cursor:pointer;color:var(--red2);font-weight:700}
+  .pitcherlink:hover{text-decoration:underline}
+  @media(max-width:520px){ .tilegrid{grid-template-columns:repeat(3,1fr)} }
+</style>
+</head>
+<body>
+<header>
+  <a href="index.html" style="color:var(--dim);text-decoration:none;font-size:13px;font-weight:700;white-space:nowrap">← APEX</a>
+  <div class="logo" style="border-left:1px solid var(--line);padding-left:12px"><b>SHU</b> Pitch Tracking</div>
+  <div class="sess" id="sessInfo"></div>
+</header>
+<nav>
+  <button data-v="chart" class="active">Chart</button>
+  <button data-v="reports">Reports</button>
+  <button data-v="pitchers">Pitchers</button>
+  <button data-v="trackman">TrackMan</button>
+  <button data-v="data">Data</button>
+</nav>
+<main>
+
+<!-- ============ CHART ============ -->
+<section class="view active" id="v-chart">
+  <div class="card">
+    <div class="row">
+      <div>
+        <label class="fld">Session</label>
+        <div style="display:flex;gap:8px">
+          <select id="chSession" style="flex:1"></select>
+          <button class="btn red" id="chNewSess" title="Start a new session" style="flex:0 0 auto">+ New</button>
+        </div>
+      </div>
+      <div>
+        <label class="fld">Pitcher on the mound</label>
+        <select id="chPitcher"></select>
+      </div>
+    </div>
+    <div class="hint" id="chSetupHint"></div>
+  </div>
+
+  <div id="chLive" style="display:none">
+    <div class="countbar">
+      <div><div class="big" id="cBalls">0</div><div class="lbl">Balls</div></div>
+      <div style="font-size:30px;color:var(--dim)">–</div>
+      <div><div class="big" id="cStrikes">0</div><div class="lbl">Strikes</div></div>
+      <div style="width:1px;height:44px;background:var(--line)"></div>
+      <div style="text-align:left">
+        <div class="pa" id="cPA">Plate appearance 1</div>
+        <div class="pa" id="cPitcherName" style="color:var(--ink);font-weight:700"></div>
+      </div>
+      <div style="width:1px;height:44px;background:var(--line)"></div>
+      <div style="text-align:center">
+        <div class="lbl" style="margin-bottom:5px">Batter</div>
+        <div class="handtog" id="handTog">
+          <button data-side="R">RHH</button>
+          <button data-side="L">LHH</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>1 · Pitch type</h3>
+      <div class="tilegrid" id="typeTiles"></div>
+      <h3 style="margin-top:12px">Velocity <span class="muted" style="text-transform:none;letter-spacing:0">(optional — TrackMan fills this later)</span></h3>
+      <input type="number" id="veloInput" inputmode="decimal" placeholder="e.g. 88" step="0.1">
+    </div>
+
+    <div class="card">
+      <h3>2 · Result <span class="muted" style="text-transform:none;letter-spacing:0">— logs the pitch & advances the count</span></h3>
+      <div class="stripe"></div>
+      <div class="tilegrid" id="resultTiles" style="grid-template-columns:repeat(3,1fr)"></div>
+      <div class="flexb" style="margin-top:10px">
+        <button class="btn ghost sm" id="undoBtn">↶ Undo last pitch</button>
+        <button class="btn ghost sm" id="newBatterBtn">New batter (reset count)</button>
+        <div class="spacer"></div>
+        <span class="muted" id="pitchCount"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>This session — <span id="seqPitcherName"></span></h3>
+      <div id="seqList"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ REPORTS ============ -->
+<section class="view" id="v-reports">
+  <div class="card">
+    <div class="row">
+      <div><label class="fld">Session</label><select id="rpSession"></select></div>
+      <div><label class="fld">Pitcher</label><select id="rpPitcher"></select></div>
+      <div><label class="fld">Batter hand</label><select id="rpSide"><option value="">All batters</option><option value="R">vs RHH</option><option value="L">vs LHH</option></select></div>
+    </div>
+  </div>
+  <div id="rpBody"></div>
+</section>
+
+<!-- ============ PITCHERS ============ -->
+<section class="view" id="v-pitchers">
+  <div id="pdBody"></div>
+</section>
+
+<!-- ============ TRACKMAN ============ -->
+<section class="view" id="v-trackman">
+  <div class="card">
+    <h3>Attach TrackMan session PDFs</h3>
+    <p class="muted" style="margin:0 0 10px">Upload one or more portable-unit session PDFs (one file = one pitcher's session). Each is matched to a charted session by <b>pitcher name + date</b>, then its pitches are aligned in order onto what your charter logged.</p>
+    <input type="file" id="tmFiles" accept="application/pdf" multiple style="padding:9px;background:var(--panel2);border:1px dashed var(--line);border-radius:10px;width:100%">
+    <div id="tmStatus" class="hint"></div>
+  </div>
+  <div id="tmResults"></div>
+</section>
+
+<!-- ============ DATA ============ -->
+<section class="view" id="v-data">
+  <div class="card">
+    <h3>Sessions</h3>
+    <div class="row" style="margin-bottom:10px">
+      <div><label class="fld">Date</label><input type="date" id="newSessDate"></div>
+      <div><label class="fld">Label (e.g. Intrasquad — Team White vs Black)</label><input type="text" id="newSessLabel" placeholder="Intrasquad"></div>
+      <div style="flex:0 0 auto;display:flex;align-items:flex-end"><button class="btn red" id="addSessBtn">+ Add session</button></div>
+    </div>
+    <div id="sessList"></div>
+  </div>
+
+  <div class="card">
+    <h3>Pitching staff (roster)</h3>
+    <div class="row" style="margin-bottom:10px">
+      <div><input type="text" id="newPitcherName" placeholder="Add a pitcher — e.g. Bryan Matuschat"></div>
+      <div style="flex:0 0 auto;display:flex;align-items:flex-end"><button class="btn red" id="addPitcherBtn">+ Add</button></div>
+    </div>
+    <div class="hint">TrackMan matches on these names, so spell them the way the unit reports them. Aliases can be added if a report uses a nickname.</div>
+    <div id="rosterList" style="margin-top:10px"></div>
+  </div>
+
+  <div class="card">
+    <h3>Backup & transfer</h3>
+    <p class="muted" style="margin:0 0 10px">This prototype stores everything on <b>this device</b>. Export to move a charter's data to your machine, or to keep a backup. (Cross-device auto-sync with no logins is the next step.)</p>
+    <div class="flexb">
+      <button class="btn" id="exportBtn">⬇ Export all data (JSON)</button>
+      <label class="btn ghost" style="cursor:pointer">⬆ Import JSON<input type="file" id="importFile" accept="application/json" style="display:none"></label>
+      <button class="btn ghost" id="seedBtn">Load demo data</button>
+      <div class="spacer"></div>
+      <button class="btn ghost sm" id="wipeBtn" style="color:#e5657a">Erase everything</button>
+    </div>
+    <div class="hint" style="margin-top:12px"><b>Next step (no-login cloud sync):</b> once you spin up a free Supabase project, the charter's phone writes straight into it and your reports read from it automatically — no export/import, no accounts for anyone. Say the word when you want to wire it.</div>
+  </div>
+</section>
+
+</main>
+
+<script>
+"use strict";
+/* ---------------- constants ---------------- */
+const PITCH_TYPES=[
+  {code:'FB',label:'Fastball',color:'#e11d3a'},
+  {code:'SI',label:'Sinker',color:'#f0883e'},
+  {code:'CT',label:'Cutter',color:'#8b6d3f'},
+  {code:'SL',label:'Slider',color:'#d9b73a'},
+  {code:'SW',label:'Sweeper',color:'#22c1a6'},
+  {code:'CB',label:'Curveball',color:'#3fb0d9'},
+  {code:'CH',label:'Changeup',color:'#5ad07a'},
+  {code:'SP',label:'Splitter',color:'#b07de0'}
+];
+const TYPE_BY_CODE=Object.fromEntries(PITCH_TYPES.map(t=>[t.code,t]));
+const RESULTS=[
+  {code:'CalledStrike',label:'Called Strike'},
+  {code:'Whiff',label:'Swing & Miss'},
+  {code:'Foul',label:'Foul'},
+  {code:'Ball',label:'Ball'},
+  {code:'InPlay',label:'In Play'}
+];
+const LS_KEY='shu_pitch_tracking_v1';
+
+/* ---------------- store ---------------- */
+let DB={roster:[],sessions:[],meta:{}};
+function uid(){return Math.random().toString(36).slice(2,9)}
+function load(){try{const r=localStorage.getItem(LS_KEY);if(r)DB=JSON.parse(r);}catch(e){}
+  DB.roster=DB.roster||[];DB.sessions=DB.sessions||[];DB.meta=DB.meta||{};
+  if(!DB.meta.activeSide)DB.meta.activeSide='R';}
+function save(){localStorage.setItem(LS_KEY,JSON.stringify(DB));}
+function sessionById(id){return DB.sessions.find(s=>s.id===id)}
+function pitcherById(id){return DB.roster.find(p=>p.id===id)}
+function pitcherName(id){const p=pitcherById(id);return p?p.name:'—'}
+
+/* ---------------- count logic ---------------- */
+function advance(balls,strikes,result){
+  let paEnd=false;
+  if(result==='Ball'){balls++;if(balls>=4)paEnd=true;}
+  else if(result==='CalledStrike'||result==='Whiff'){strikes++;if(strikes>=3)paEnd=true;}
+  else if(result==='Foul'){if(strikes<2)strikes++;}
+  else if(result==='InPlay'){paEnd=true;}
+  if(paEnd)return{balls:0,strikes:0,paEnd:true};
+  return{balls,strikes,paEnd:false};
+}
+function pitcherPitches(sess,pid){return sess.pitches.filter(p=>p.pitcherId===pid);}
+// live count + PA number for the pitcher's current PA
+function liveState(sess,pid){
+  let balls=0,strikes=0,pa=1;
+  for(const p of pitcherPitches(sess,pid)){
+    const r=advance(balls,strikes,p.result);
+    if(r.paEnd||p.forcePAEnd){balls=0;strikes=0;pa++;}else{balls=r.balls;strikes=r.strikes;}
+  }
+  return {balls,strikes,pa};
+}
+// split a pitcher's pitches in a session into PAs (arrays of pitch objs)
+function pasOf(sess,pid){
+  const out=[];let cur=[],b=0,s=0;
+  for(const p of pitcherPitches(sess,pid)){
+    cur.push(p);
+    const r=advance(b,s,p.result);
+    if(r.paEnd||p.forcePAEnd){out.push(cur);cur=[];b=0;s=0;}else{b=r.balls;s=r.strikes;}
+  }
+  if(cur.length)out.push(cur);
+  return out;
+}
+
+/* ---------------- view routing ---------------- */
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('v-'+b.dataset.v).classList.add('active');
+  if(b.dataset.v==='reports')renderReports();
+  if(b.dataset.v==='pitchers')renderPitcherDB();
+  if(b.dataset.v==='data')renderData();
+  if(b.dataset.v==='trackman')renderTMResults();
+});
+function goTo(v){document.querySelector('nav button[data-v="'+v+'"]').click();}
+
+/* ---------------- CHART ---------------- */
+let pendingType=null;
+function refreshSessionPickers(){
+  const opts=DB.sessions.map(s=>`<option value="${s.id}">${fmtDate(s.date)} · ${esc(s.label||'Session')}</option>`).join('');
+  const empty='<option value="">— no sessions yet —</option>';
+  ['chSession','rpSession'].forEach(id=>{
+    const el=document.getElementById(id);const cur=el.value;
+    el.innerHTML=(DB.sessions.length?'':empty)+opts;
+    if(DB.meta.activeSessionId&&sessionById(DB.meta.activeSessionId))el.value=DB.meta.activeSessionId;
+    else if(cur)el.value=cur;
+  });
+  refreshPitcherPickers();
+}
+function refreshPitcherPickers(){
+  const pitchers=DB.roster;
+  const chOpts=pitchers.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  const chEl=document.getElementById('chPitcher');
+  chEl.innerHTML=(pitchers.length?'':'<option value="">— add pitchers in Data —</option>')+chOpts;
+  if(DB.meta.activePitcherId&&pitcherById(DB.meta.activePitcherId))chEl.value=DB.meta.activePitcherId;
+  const rpEl=document.getElementById('rpPitcher');
+  rpEl.innerHTML='<option value="">All pitchers</option>'+chOpts;
+}
+document.getElementById('chSession').onchange=e=>{DB.meta.activeSessionId=e.target.value;save();refreshPitcherPickers();renderChart();updateSessInfo();};
+document.getElementById('chNewSess').onclick=()=>{
+  const label=prompt('Name this session (e.g. "Intrasquad — White vs Black"):','Intrasquad');
+  if(label===null)return;
+  const s={id:uid(),date:todayISO(),label:label.trim()||'Intrasquad',pitches:[]};
+  DB.sessions.push(s);DB.meta.activeSessionId=s.id;save();
+  refreshSessionPickers();renderData();renderChart();updateSessInfo();
+  if(!DB.roster.length)alert('Session started. Add your pitchers in the Data tab, then pick who’s on the mound.');
+};
+document.getElementById('chPitcher').onchange=e=>{DB.meta.activePitcherId=e.target.value;save();renderChart();};
+document.querySelectorAll('#handTog button').forEach(b=>b.onclick=()=>{DB.meta.activeSide=b.dataset.side;save();renderChart();});
+
+function updateSessInfo(){
+  const s=sessionById(DB.meta.activeSessionId);
+  document.getElementById('sessInfo').innerHTML=s?`${esc(s.label||'Session')}<br>${fmtDate(s.date)}`:'no session selected';
+}
+function buildTiles(){
+  document.getElementById('typeTiles').innerHTML=PITCH_TYPES.map(t=>
+    `<div class="tile small" data-type="${t.code}"><span class="dot" style="background:${t.color}"></span>${t.label}</div>`).join('');
+  document.getElementById('resultTiles').innerHTML=RESULTS.map(r=>
+    `<div class="tile" data-result="${r.code}">${r.label}</div>`).join('');
+  document.querySelectorAll('#typeTiles .tile').forEach(t=>t.onclick=()=>{
+    pendingType=t.dataset.type;
+    document.querySelectorAll('#typeTiles .tile').forEach(x=>x.classList.remove('sel'));
+    t.classList.add('sel');
+  });
+  document.querySelectorAll('#resultTiles .tile').forEach(t=>t.onclick=()=>logPitch(t.dataset.result));
+}
+function logPitch(result){
+  const sess=sessionById(DB.meta.activeSessionId);const pid=DB.meta.activePitcherId;
+  if(!sess||!pid){alert('Pick a session and a pitcher first.');return;}
+  if(!pendingType){flash('Pick a pitch type first');return;}
+  const st=liveState(sess,pid);
+  const velo=parseFloat(document.getElementById('veloInput').value);
+  sess.pitches.push({id:uid(),pitcherId:pid,balls:st.balls,strikes:st.strikes,
+    type:pendingType,velo:isNaN(velo)?null:velo,result,side:DB.meta.activeSide||'R',tm:null});
+  save();
+  document.getElementById('veloInput').value='';
+  pendingType=null;
+  document.querySelectorAll('#typeTiles .tile').forEach(x=>x.classList.remove('sel'));
+  renderChart();
+}
+document.getElementById('undoBtn').onclick=()=>{
+  const sess=sessionById(DB.meta.activeSessionId);const pid=DB.meta.activePitcherId;
+  if(!sess)return;
+  for(let i=sess.pitches.length-1;i>=0;i--){if(sess.pitches[i].pitcherId===pid){sess.pitches.splice(i,1);break;}}
+  save();renderChart();
+};
+document.getElementById('newBatterBtn').onclick=()=>{
+  const sess=sessionById(DB.meta.activeSessionId);const pid=DB.meta.activePitcherId;
+  if(!sess)return;
+  const pp=pitcherPitches(sess,pid);
+  if(pp.length){pp[pp.length-1].forcePAEnd=true;save();renderChart();}
+};
+function renderChart(){
+  const sess=sessionById(DB.meta.activeSessionId);const pid=DB.meta.activePitcherId;
+  const live=document.getElementById('chLive');
+  const hint=document.getElementById('chSetupHint');
+  if(!sess){hint.innerHTML='No session yet — tap <b>+ New</b> above to start one, then chart.';live.style.display='none';return;}
+  if(!DB.roster.length){hint.innerHTML='Session ready. Add your pitching staff in the <b>Data</b> tab, then come back and pick who’s on the mound.';live.style.display='none';return;}
+  if(!pid){hint.textContent='Pick who’s on the mound to start charting.';live.style.display='none';return;}
+  hint.textContent='';live.style.display='block';
+  const st=liveState(sess,pid);
+  document.getElementById('cBalls').textContent=st.balls;
+  document.getElementById('cStrikes').textContent=st.strikes;
+  document.getElementById('cPA').textContent='Plate appearance '+st.pa;
+  document.getElementById('cPitcherName').textContent=pitcherName(pid);
+  document.getElementById('seqPitcherName').textContent=pitcherName(pid);
+  document.querySelectorAll('#handTog button').forEach(b=>b.classList.toggle('on',b.dataset.side===(DB.meta.activeSide||'R')));
+  const pp=pitcherPitches(sess,pid);
+  document.getElementById('pitchCount').textContent=pp.length+' pitches logged';
+  let html='',b=0,s=0,paNum=1,cur=[];
+  const flush=()=>{if(cur.length){html+=`<div class="seq"><b>PA ${paNum}</b> — ${cur.join('  ')}</div>`;cur=[];paNum++;}};
+  for(const p of pp){
+    const t=TYPE_BY_CODE[p.type];
+    cur.push(`${b}-${s} ${t?t.code:p.type}${p.velo?(' '+p.velo):''} <span style="color:var(--dim)">${short(p.result)}</span>`);
+    const r=advance(b,s,p.result);
+    if(r.paEnd||p.forcePAEnd){b=0;s=0;flush();}else{b=r.balls;s=r.strikes;}
+  }
+  if(cur.length){html+=`<div class="seq"><b>PA ${paNum}</b> — ${cur.join('  ')}</div>`;}
+  document.getElementById('seqList').innerHTML=html?`<div class="seqwrap">${html}</div>`:'<div class="muted">No pitches yet — tap a pitch type, then a result.</div>';
+  updateSessInfo();
+}
+function short(r){return{CalledStrike:'CS',Whiff:'W',Foul:'F',Ball:'B',InPlay:'IP'}[r]||r}
+function flash(msg){const el=document.getElementById('pitchCount');el.textContent=msg;el.style.color='var(--red2)';setTimeout(()=>{el.style.color='';renderChart();},1000);}
+
+/* ---------------- METRICS ---------------- */
+function isStrike(r){return r!=='Ball';}
+function isCSW(r){return r==='CalledStrike'||r==='Whiff';}
+function pct(n,d){return d?Math.round(1000*n/d)/10:null;}
+// PA reached 2 strikes before 2 balls?
+function paEarlyAdvantage(pa){
+  let b=0,s=0;
+  for(const p of pa){
+    // count BEFORE pitch is b-s; result advances
+    const r=advance(b,s,p.result);
+    if(!r.paEnd){b=r.balls;s=r.strikes;}
+    else{ // pitch ended PA — apply its strike/ball to check thresholds
+      if(p.result==='CalledStrike'||p.result==='Whiff')s=Math.min(3,s+1);
+      if(p.result==='Ball')b=Math.min(4,b+1);
+    }
+    if(s>=2&&b<2)return true;
+    if(b>=2&&s<2)return false;
+  }
+  return false;
+}
+// compute metrics from a list of PAs (arrays of pitches), optional side filter
+function computeMetrics(pas, side){
+  let PAs=pas;
+  if(side)PAs=PAs.filter(pa=>pa.length&&(pa[0].side||'R')===side);
+  const pitches=[];PAs.forEach(pa=>pa.forEach(p=>pitches.push(p)));
+  const m={n:pitches.length,nPA:PAs.length,strikes:0,fp:0,fpK:0,oo11:0,oo11K:0,whiff:0,csw:0,ea:0,byType:{}};
+  PAs.forEach(pa=>{ if(paEarlyAdvantage(pa))m.ea++; });
+  for(const p of pitches){
+    if(isStrike(p.result))m.strikes++;
+    if(p.balls===0&&p.strikes===0){m.fp++;if(isStrike(p.result))m.fpK++;}
+    if(p.balls===1&&p.strikes===1){m.oo11++;if(isStrike(p.result))m.oo11K++;}
+    if(p.result==='Whiff')m.whiff++;
+    if(isCSW(p.result))m.csw++;
+    const t=p.type;m.byType[t]=m.byType[t]||{n:0,csw:0,whiff:0,strikes:0,tm:[],loc:[]};
+    const bt=m.byType[t];bt.n++;if(isCSW(p.result))bt.csw++;if(p.result==='Whiff')bt.whiff++;
+    if(isStrike(p.result))bt.strikes++;
+    if(p.tm)bt.tm.push(p.tm);
+    if(p.loc!=null)bt.loc.push(p.loc);
+  }
+  return m;
+}
+// gather PAs for a scope: {sessIds:[...], pid:optional}
+function gatherPAs(sessIds, pid){
+  const pas=[];
+  sessIds.forEach(sid=>{const s=sessionById(sid);if(!s)return;
+    const pids=pid?[pid]:DB.roster.map(p=>p.id);
+    pids.forEach(pp=>{pasOf(s,pp).forEach(pa=>pas.push(pa));});
+  });
+  return pas;
+}
+
+function kpi(v,k,sub){return `<div class="kpi"><div class="v">${v}</div><div class="k">${k}${sub?`<small>${sub}</small>`:''}</div></div>`;}
+function fmtPct(v){return v==null?'—':v+'%';}
+
+function metricsKpiHtml(m,label){
+  return `<div class="card"><h3>${label}</h3><div class="kpis">
+    ${kpi(m.n,'Pitches')}
+    ${kpi(m.nPA,'Plate app.')}
+    ${kpi(fmtPct(pct(m.strikes,m.n)),'Strike %')}
+    ${kpi(fmtPct(pct(m.fpK,m.fp)),'FPS %','1st-pitch strike')}
+    ${kpi(fmtPct(pct(m.ea,m.nPA)),'E+A %','2K before 2B')}
+    ${kpi(fmtPct(pct(m.oo11K,m.oo11)),'1-1 K %')}
+    ${kpi(fmtPct(pct(m.csw,m.n)),'CSW %')}
+    ${kpi(fmtPct(pct(m.whiff,m.n)),'Whiff %')}
+  </div></div>`;
+}
+function usageTableHtml(m){
+  let h=`<div class="card"><h3>Usage & effectiveness by pitch</h3><div class="tblscroll"><table>
+    <tr><th>Pitch</th><th>#</th><th>Usage</th><th>Strike%</th><th>CSW%</th><th>Whiff%</th></tr>`;
+  PITCH_TYPES.forEach(t=>{const bt=m.byType[t.code];if(!bt)return;
+    h+=`<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${t.color};margin-right:6px"></span>${t.label}</td>
+      <td>${bt.n}</td>
+      <td>${fmtPct(pct(bt.n,m.n))}<div class="bar"><span style="width:${pct(bt.n,m.n)||0}%"></span></div></td>
+      <td>${fmtPct(pct(bt.strikes,bt.n))}</td>
+      <td>${fmtPct(pct(bt.csw,bt.n))}</td>
+      <td>${fmtPct(pct(bt.whiff,bt.n))}</td></tr>`;});
+  h+=`</table></div></div>`;return h;
+}
+// jet colormap: t in [0,1] -> [r,g,b] 0-255 (blue->cyan->green->yellow->red)
+function jet(t){t=Math.max(0,Math.min(1,t));
+  const c=v=>Math.max(0,Math.min(1,v));
+  return [c(1.5-Math.abs(4*t-3))*255, c(1.5-Math.abs(4*t-2))*255, c(1.5-Math.abs(4*t-1))*255];}
+// smooth kernel-density heatmap of normalized [nx,ny] points onto a canvas, jet over white
+function drawHeat(cv,pts){
+  const W=cv.width,H=cv.height,ctx=cv.getContext('2d');
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
+  if(!pts||!pts.length)return;
+  const gw=64,gh=70,bw=0.11; const dens=new Float32Array(gw*gh);let max=0;
+  for(let gy=0;gy<gh;gy++){const y=(gy+0.5)/gh;
+    for(let gx=0;gx<gw;gx++){const x=(gx+0.5)/gw;let d=0;
+      for(let k=0;k<pts.length;k++){const dx=x-pts[k][0],dy=y-pts[k][1];d+=Math.exp(-(dx*dx+dy*dy)/(2*bw*bw));}
+      dens[gy*gw+gx]=d;if(d>max)max=d;}}
+  const small=document.createElement('canvas');small.width=gw;small.height=gh;
+  const sctx=small.getContext('2d');const img=sctx.createImageData(gw,gh);const dd=img.data;
+  for(let i=0;i<gw*gh;i++){const d=max?dens[i]/max:0;const a=Math.min(1,d*1.2);const c=jet(d);
+    dd[i*4]=255*(1-a)+c[0]*a;dd[i*4+1]=255*(1-a)+c[1]*a;dd[i*4+2]=255*(1-a)+c[2]*a;dd[i*4+3]=255;}
+  sctx.putImageData(img,0,0);
+  ctx.imageSmoothingEnabled=true;ctx.drawImage(small,0,0,W,H);
+}
+let HEATREG={},heatSeq=0;
+function paintAllHeat(){
+  document.querySelectorAll('canvas.heatcanvas[data-hid]').forEach(cv=>{
+    if(cv.dataset.painted)return;cv.dataset.painted='1';
+    try{drawHeat(cv,HEATREG[cv.dataset.hid]||[]);}catch(e){}
+  });
+}
+function tmHeatmapsHtml(locByType){
+  const types=PITCH_TYPES.filter(t=>locByType[t.code]&&locByType[t.code].length);
+  if(!types.length)return '';
+  let cards='';
+  types.forEach(t=>{const hid='h'+(heatSeq++);HEATREG[hid]=locByType[t.code];
+    cards+=`<div class="hmcard"><div class="ttl"><span style="width:11px;height:11px;border-radius:50%;background:${t.color};display:inline-block"></span>${t.label}</div>
+      <div class="heatwrap">
+        <canvas class="heatcanvas" data-hid="${hid}" width="150" height="165"></canvas>
+        <div class="dzbox" style="left:22.5%;top:17.5%;width:55%;height:65%"></div>
+        <div class="szbox" style="left:29.25%;top:25%;width:41.5%;height:50%"></div>
+      </div>
+      <div class="sub">${locByType[t.code].length} located</div></div>`;});
+  return `<div class="card"><h3>TrackMan location heatmaps <span class="tag tm">TM</span> <span class="muted" style="text-transform:none;letter-spacing:0">— catcher's view</span></h3><div class="hmgrid">${cards}</div><div class="hint">Blue = least, red = most. Solid box = strike zone. Rebuilt from TrackMan's location plot; overlapping pitches merge into one point, so the very busiest spots are slightly under-counted, and these aren't split by batter hand.</div></div>`;
+}
+function gatherTMLoc(sessIds,pid){
+  const out={};
+  sessIds.forEach(sid=>{const s=sessionById(sid);if(!s||!s.tmLoc)return;
+    const pids=pid?[pid]:Object.keys(s.tmLoc);
+    pids.forEach(pp=>{const lb=s.tmLoc[pp];if(!lb)return;for(const t in lb){(out[t]=out[t]||[]).push(...lb[t]);}});});
+  return out;
+}
+
+function renderReports(){
+  refreshReportPickers();
+  const sess=sessionById(document.getElementById('rpSession').value);
+  const body=document.getElementById('rpBody');
+  if(!sess){body.innerHTML='<div class="card empty">No session selected. Create one in the Data tab.</div>';return;}
+  const pidFilter=document.getElementById('rpPitcher').value;
+  const side=document.getElementById('rpSide').value;
+  const pas=gatherPAs([sess.id], pidFilter||null);
+  const m=computeMetrics(pas, side);
+  if(!m.n){body.innerHTML='<div class="card empty">No pitches for this selection yet.</div>';return;}
+  const scopeLabel=(pidFilter?esc(pitcherName(pidFilter)):'Team')+(side?` — vs ${side==='R'?'RHH':'LHH'}`:'');
+  let h=metricsKpiHtml(m,scopeLabel+' totals');
+  h+=usageTableHtml(m);
+  // leaderboard (only All pitchers)
+  if(!pidFilter){
+    const rows=DB.roster.map(pit=>{const pas2=gatherPAs([sess.id],pit.id);const mm=computeMetrics(pas2,side);if(!mm.n)return null;return {name:pit.name,mm};}).filter(Boolean)
+      .sort((a,b)=>b.mm.n-a.mm.n);
+    if(rows.length){
+      h+=`<div class="card"><h3>Pitcher leaderboard</h3><div class="tblscroll"><table>
+        <tr><th>Pitcher</th><th>#</th><th>Strike%</th><th>FPS%</th><th>E+A%</th><th>1-1 K%</th><th>CSW%</th><th>Whiff%</th></tr>`;
+      rows.forEach(r=>{const mm=r.mm;
+        h+=`<tr><td><span class="pitcherlink" data-openp="${DB.roster.find(p=>p.name===r.name).id}">${esc(r.name)}</span></td><td>${mm.n}</td><td>${fmtPct(pct(mm.strikes,mm.n))}</td>
+          <td>${fmtPct(pct(mm.fpK,mm.fp))}</td><td>${fmtPct(pct(mm.ea,mm.nPA))}</td><td>${fmtPct(pct(mm.oo11K,mm.oo11))}</td>
+          <td>${fmtPct(pct(mm.csw,mm.n))}</td><td>${fmtPct(pct(mm.whiff,mm.n))}</td></tr>`;});
+      h+=`</table></div></div>`;
+    }
+  }
+  const tmLoc=gatherTMLoc([sess.id], pidFilter||null);
+  if(Object.keys(tmLoc).length)h+=tmHeatmapsHtml(tmLoc);
+  // trackman
+  if(pas.some(pa=>pa.some(p=>p.tm))){h+=tmTableHtml(m, tmLoc);}
+  body.innerHTML=h;
+  body.querySelectorAll('[data-openp]').forEach(el=>el.onclick=()=>{PD.pid=el.dataset.openp;PD.sessIds=null;goTo('pitchers');});
+  paintAllHeat();
+}
+function inZone(p){return p[0]>=0.2925&&p[0]<=0.7075&&p[1]>=0.25&&p[1]<=0.75;}
+function tmTableHtml(m, tmLoc){
+  tmLoc=tmLoc||{};
+  let h=`<div class="card"><h3>TrackMan — stuff by pitch <span class="tag tm">TM</span></h3><div class="tblscroll"><table>
+    <tr><th>Pitch</th><th>#TM</th><th>Velo</th><th>Spin</th><th>Eff%</th><th>Zone%</th><th>Tilt</th><th>IVB</th><th>HB</th><th>Ext</th><th>RelH</th><th>RelSide</th></tr>`;
+  PITCH_TYPES.forEach(t=>{const bt=m.byType[t.code];if(!bt||!bt.tm.length)return;const a=avgTM(bt.tm);
+    const pts=tmLoc[t.code]||[];const zone=pts.length?fmtPct(pct(pts.filter(inZone).length,pts.length)):'—';
+    h+=`<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${t.color};margin-right:6px"></span>${t.label}</td>
+      <td>${bt.tm.length}</td><td>${a.velo}</td><td>${a.spin}</td><td>${a.eff}</td><td>${zone}</td><td>${a.tilt}</td>
+      <td>${a.ivb}</td><td>${a.hb}</td><td>${a.ext}</td><td>${a.relh}</td><td>${a.relside}</td></tr>`;});
+  h+=`</table></div><div class="hint">Averages across pitches matched to a TrackMan row. Zone% = share of that pitch's TrackMan locations inside the strike zone. Release &amp; extension in feet, break in inches, spin in rpm.</div></div>`;return h;
+}
+function refreshReportPickers(){
+  const el=document.getElementById('rpSession');const cur=el.value;
+  el.innerHTML=DB.sessions.map(s=>`<option value="${s.id}">${fmtDate(s.date)} · ${esc(s.label||'Session')}</option>`).join('');
+  if(cur&&sessionById(cur))el.value=cur; else if(DB.meta.activeSessionId)el.value=DB.meta.activeSessionId;
+  const rp=document.getElementById('rpPitcher');const curp=rp.value;
+  rp.innerHTML='<option value="">All pitchers</option>'+DB.roster.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  if(curp)rp.value=curp;
+}
+document.getElementById('rpSession').onchange=renderReports;
+document.getElementById('rpPitcher').onchange=renderReports;
+document.getElementById('rpSide').onchange=renderReports;
+function avgTM(list){
+  const num=(k)=>{const v=list.map(x=>x[k]).filter(x=>typeof x==='number'&&!isNaN(x));return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;};
+  const eff=list.map(x=>x.spinEff).filter(x=>typeof x==='number');
+  const r=(x,d=1)=>x==null?'—':(Math.round(x*10**d)/10**d);
+  const tilts=list.map(x=>x.tiltMin).filter(x=>typeof x==='number');
+  let tiltStr='—';if(tilts.length){tiltStr=minToClock(Math.round(tilts.reduce((a,b)=>a+b,0)/tilts.length));}
+  return {velo:r(num('velo')),spin:r(num('spin'),0),eff:eff.length?Math.round(eff.reduce((a,b)=>a+b,0)/eff.length)+'%':'—',
+    tilt:tiltStr,ivb:r(num('ivb')),hb:r(num('hb')),ext:r(num('ext')),relh:r(num('relH')),relside:r(num('relSide'))};
+}
+
+/* ---------------- PITCHER DATABASE ---------------- */
+let PD={pid:null,sessIds:null,side:''}; // sessIds null = all outings
+function renderPitcherDB(){
+  const body=document.getElementById('pdBody');
+  if(!DB.roster.length){body.innerHTML='<div class="card empty">No pitchers yet — add your staff in the Data tab.</div>';return;}
+  if(!PD.pid||!pitcherById(PD.pid)){
+    // roster list
+    let h='<div class="card"><h3>Pitcher database</h3><p class="muted" style="margin:0 0 10px">Click a pitcher to see their outings and combined stats, heatmaps &amp; TrackMan.</p><div class="tblscroll"><table><tr><th>Pitcher</th><th>Outings</th><th>Pitches</th><th>Strike%</th><th>CSW%</th></tr>';
+    DB.roster.forEach(p=>{
+      const sessIds=DB.sessions.filter(s=>s.pitches.some(x=>x.pitcherId===p.id)).map(s=>s.id);
+      const m=computeMetrics(gatherPAs(sessIds,p.id),'');
+      h+=`<tr><td><span class="pitcherlink" data-pid="${p.id}">${esc(p.name)}</span></td><td>${sessIds.length}</td><td>${m.n}</td><td>${fmtPct(pct(m.strikes,m.n))}</td><td>${fmtPct(pct(m.csw,m.n))}</td></tr>`;
+    });
+    h+='</table></div></div>';
+    body.innerHTML=h;
+    body.querySelectorAll('[data-pid]').forEach(el=>el.onclick=()=>{PD.pid=el.dataset.pid;PD.sessIds=null;renderPitcherDB();});
+    return;
+  }
+  // detail
+  const p=pitcherById(PD.pid);
+  const outings=DB.sessions.filter(s=>s.pitches.some(x=>x.pitcherId===p.id));
+  const activeSessIds=PD.sessIds||outings.map(s=>s.id);
+  let h=`<div class="card"><div class="flexb"><button class="btn ghost sm" id="pdBack">← All pitchers</button>
+    <h3 style="margin:0">${esc(p.name)}</h3><div class="spacer"></div>
+    <select id="pdSide" style="width:auto"><option value="">All batters</option><option value="R" ${PD.side==='R'?'selected':''}>vs RHH</option><option value="L" ${PD.side==='L'?'selected':''}>vs LHH</option></select></div>
+    <div class="hint">Outings — tap to include/exclude:</div><div class="flexb" style="margin-top:8px">
+    <span class="pill click ${!PD.sessIds?'on':''}" data-all="1">All outings</span>`;
+  outings.forEach(s=>{const on=PD.sessIds&&PD.sessIds.includes(s.id);
+    h+=`<span class="pill click ${on?'on':''}" data-sid="${s.id}">${fmtDate(s.date)} · ${esc(s.label||'')}</span>`;});
+  h+=`</div></div>`;
+  const m=computeMetrics(gatherPAs(activeSessIds,p.id),PD.side);
+  if(!m.n){h+='<div class="card empty">No pitches for this selection.</div>';}
+  else{
+    h+=metricsKpiHtml(m, esc(p.name)+(PD.side?` — vs ${PD.side==='R'?'RHH':'LHH'}`:''));
+    h+=usageTableHtml(m);
+    const tmLoc=gatherTMLoc(activeSessIds, p.id);
+    if(Object.keys(tmLoc).length)h+=tmHeatmapsHtml(tmLoc);
+    if(activeSessIds.some(sid=>{const s=sessionById(sid);return s&&s.pitches.some(x=>x.pitcherId===p.id&&x.tm);}))h+=tmTableHtml(m, tmLoc);
+  }
+  body.innerHTML=h;
+  document.getElementById('pdBack').onclick=()=>{PD.pid=null;renderPitcherDB();};
+  document.getElementById('pdSide').onchange=e=>{PD.side=e.target.value;renderPitcherDB();};
+  body.querySelectorAll('[data-all]').forEach(el=>el.onclick=()=>{PD.sessIds=null;renderPitcherDB();});
+  body.querySelectorAll('[data-sid]').forEach(el=>el.onclick=()=>{
+    const id=el.dataset.sid;let cur=PD.sessIds?[...PD.sessIds]:outings.map(s=>s.id);
+    if(cur.includes(id))cur=cur.filter(x=>x!==id);else cur.push(id);
+    if(!cur.length){PD.sessIds=null;}else{PD.sessIds=cur;}
+    renderPitcherDB();
+  });
+  paintAllHeat();
+}
+
+/* ---------------- TRACKMAN PARSE ---------------- */
+if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+let tmParsed=[];
+async function parsePDF(file){
+  const buf=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  let full='';let locByType=null;
+  for(let i=1;i<=pdf.numPages;i++){
+    const page=await pdf.getPage(i);const tc=await page.getTextContent();
+    const items=tc.items.map(it=>({x:it.transform[4],y:Math.round(it.transform[5]),s:it.str}));
+    const lines={};items.forEach(it=>{(lines[it.y]=lines[it.y]||[]).push(it);});
+    Object.keys(lines).map(Number).sort((a,b)=>b-a).forEach(y=>{
+      full+=lines[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ')+'\n';});
+    if(i===1){try{locByType=await extractLocDots(page);}catch(e){locByType=null;}}
+  }
+  return {text:full, locByType};
+}
+// Extract the Location-plot scatter dots from page 1 of a TrackMan portable report.
+// Returns {FB:[cellIdx...],CT:[...],...} bucketed into the app's 5x5 zone grid.
+// NOTE: overlapping pitches render as one dot, so counts under-represent dense zones.
+// Calibration matches TrackMan's fixed portable-report template.
+async function extractLocDots(page){
+  const OPS=pdfjsLib.OPS;
+  const ops=await page.getOperatorList();
+  const names={};for(const k in OPS)names[OPS[k]]=k;
+  const mul=(m,n)=>[m[0]*n[0]+m[2]*n[1],m[1]*n[0]+m[3]*n[1],m[0]*n[2]+m[2]*n[3],m[1]*n[2]+m[3]*n[3],m[0]*n[4]+m[2]*n[5]+m[4],m[1]*n[4]+m[3]*n[5]+m[5]];
+  const app=(m,x,y)=>[m[0]*x+m[2]*y+m[4],m[1]*x+m[3]*y+m[5]];
+  const TYPES={FB:[147,4,18],CT:[72,47,0],CH:[110,162,0],SL:[223,182,0],SW:[52,190,158],CB:[63,176,217],SP:[176,125,224]};
+  const mt=rgb=>{for(const k in TYPES){const t=TYPES[k];if(Math.abs(rgb[0]-t[0])<12&&Math.abs(rgb[1]-t[1])<12&&Math.abs(rgb[2]-t[2])<12)return k;}return null;};
+  let ctm=[1,0,0,1,0,0],stack=[],fill=[0,0,0],last=null;const dots=[];
+  for(let i=0;i<ops.fnArray.length;i++){
+    const nm=names[ops.fnArray[i]],a=ops.argsArray[i];
+    if(nm==='save')stack.push(ctm.slice());
+    else if(nm==='restore')ctm=stack.pop()||[1,0,0,1,0,0];
+    else if(nm==='transform')ctm=mul(ctm,a);
+    else if(nm==='setFillRGBColor')fill=[a[0],a[1],a[2]];
+    else if(nm==='constructPath'){const bb=a[2];if(bb)last=app(ctm,(bb[0]+bb[1])/2,(bb[2]+bb[3])/2);}
+    else if(nm==='fill'&&last){const t=mt(fill);if(t)dots.push([t,last[0],last[1]]);}
+  }
+  // Location plot region (page userspace, y-up): x 600-792, y 400-560
+  let loc=dots.filter(d=>d[1]>600&&d[1]<792&&d[2]>400&&d[2]<560);
+  const uniq=[];for(const d of loc){if(!uniq.some(u=>u[0]===d[0]&&Math.abs(u[1]-d[1])<3.5&&Math.abs(u[2]-d[2])<3.5))uniq.push(d);}
+  // normalized position within plot frame x[-2,2]ft, y[0.5,4.5]ft (ny 0=top)
+  const norm=(x,y)=>{const xf=(x-651)/42,yf=4+(y-538)*0.02410;
+    let nx=(xf+2)/4, ny=(4.5-yf)/4;
+    nx=Math.max(0,Math.min(1,nx));ny=Math.max(0,Math.min(1,ny));
+    return [Math.round(nx*1000)/1000,Math.round(ny*1000)/1000];};
+  const out={};uniq.forEach(u=>{(out[u[0]]=out[u[0]]||[]).push(norm(u[1],u[2]));});
+  return out;
+}
+function normalizeFeetInch(s){return s.replace(/[’]/g,"'").replace(/[”]/g,'"').replace(/(\d)\s+"/g,'$1"').replace(/(\d)\s+'/g,"$1'");}
+function feetInchToFeet(tok){if(!tok||tok==='-')return null;const m=tok.match(/(?:(\d+)')?(?:(\d+(?:\.\d+)?)")?/);if(!m)return null;const ft=m[1]?parseFloat(m[1]):0;const inch=m[2]?parseFloat(m[2]):0;if(!m[1]&&!m[2])return null;return Math.round((ft+inch/12)*100)/100;}
+function clockToMin(t){const m=t.match(/(\d+):(\d+)/);if(!m)return null;let h=parseInt(m[1])%12;return h*60+parseInt(m[2]);}
+function minToClock(min){min=((min%720)+720)%720;let h=Math.floor(min/60);if(h===0)h=12;const mm=min%60;return h+':'+String(mm).padStart(2,'0');}
+function parseTrackman(text){
+  text=normalizeFeetInch(text);
+  const hm=text.match(/(.+?)\s+Pitching practice\s+(\d{1,2}\s+\w+\s+\d{4})/);
+  const name=hm?hm[1].trim().split('\n').pop().trim():null;
+  const date=hm?parseTMDate(hm[2]):null;
+  const rowre=/#(\d+)\s+([\d.]+)\s+(\d+)\s+(\d+:\d+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(-|\d+%)/g;
+  const pitches=[];let mm;
+  while((mm=rowre.exec(text))!==null){
+    pitches.push({no:+mm[1],velo:parseFloat(mm[2]),spin:parseInt(mm[3]),tiltMin:clockToMin(mm[4]),
+      ivb:parseFloat(mm[5]),hb:parseFloat(mm[6]),ext:feetInchToFeet(mm[7]),relH:feetInchToFeet(mm[8]),
+      relSide:feetInchToFeet(mm[9]),spinEff:mm[10]==='-'?null:parseInt(mm[10])});}
+  return {name,date,pitches};
+}
+function parseTMDate(s){const months={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+  const m=s.match(/(\d{1,2})\s+(\w{3})\w*\s+(\d{4})/);if(!m)return null;const mo=months[m[2].slice(0,3).toLowerCase()];if(mo==null)return null;
+  return `${m[3]}-${String(mo+1).padStart(2,'0')}-${String(+m[1]).padStart(2,'0')}`;}
+function normName(n){return (n||'').toLowerCase().replace(/[^a-z]/g,'');}
+function normNameParts(n){return (n||'').toLowerCase().replace(/[^a-z\s,]/g,'').split(/[\s,]+/).filter(Boolean).sort().join('');}
+function matchPitcher(name){const a=normName(name),ap=normNameParts(name);
+  return DB.roster.find(p=>normName(p.name)===a)||DB.roster.find(p=>normNameParts(p.name)===ap)||
+    DB.roster.find(p=>{const b=normName(p.name);return b&&(a.includes(b)||b.includes(a));});}
+function matchSession(date){return DB.sessions.find(s=>s.date===date);}
+
+document.getElementById('tmFiles').onchange=async(e)=>{
+  const files=[...e.target.files];if(!files.length)return;
+  if(!window.pdfjsLib){document.getElementById('tmStatus').innerHTML='<span style="color:var(--red2)">PDF library did not load. Open this page in a normal browser tab.</span>';return;}
+  document.getElementById('tmStatus').textContent='Reading '+files.length+' file(s)…';
+  for(const f of files){
+    try{const res=await parsePDF(f);const parsed=parseTrackman(res.text);parsed.file=f.name;
+      parsed.locByType=res.locByType||null;
+      parsed.matchPid=parsed.name?(matchPitcher(parsed.name)||{}).id||null:null;
+      parsed.matchSessId=parsed.date?(matchSession(parsed.date)||{}).id||null:null;parsed.applied=false;
+      tmParsed.push(parsed);
+    }catch(err){tmParsed.push({file:f.name,error:String(err),pitches:[]});}
+  }
+  document.getElementById('tmStatus').textContent='';renderTMResults();
+};
+function renderTMResults(){
+  const box=document.getElementById('tmResults');
+  if(!tmParsed.length){box.innerHTML='';return;}
+  let h='';
+  tmParsed.forEach((p,idx)=>{
+    if(p.error){h+=`<div class="card"><b>${esc(p.file)}</b><div class="muted">Could not read: ${esc(p.error)}</div></div>`;return;}
+    const sessMatch=p.matchSessId&&sessionById(p.matchSessId);
+    const chartCount=(sessMatch&&p.matchPid)?pitcherPitches(sessMatch,p.matchPid).length:0;
+    const mismatch=p.matchPid&&sessMatch&&chartCount!==p.pitches.length;
+    h+=`<div class="card">
+      <div class="flexb"><b>${esc(p.name||'Unknown pitcher')}</b>
+        <span class="pill">${fmtDate(p.date)||'no date'}</span>
+        <span class="pill">${p.pitches.length} TrackMan pitches</span>
+        ${p.applied?'<span class="tag ok">attached ✓</span>':''}
+        <div class="spacer"></div><span class="muted">${esc(p.file)}</span></div>
+      <div class="row" style="margin-top:10px">
+        <div><label class="fld">Charted session</label>
+          <select data-idx="${idx}" class="tmSess">${DB.sessions.map(s=>`<option value="${s.id}" ${s.id===p.matchSessId?'selected':''}>${fmtDate(s.date)} · ${esc(s.label||'')}</option>`).join('')||'<option value="">— none —</option>'}</select></div>
+        <div><label class="fld">Maps to pitcher</label>
+          <select data-idx="${idx}" class="tmPid"><option value="">— pick —</option>${DB.roster.map(r=>`<option value="${r.id}" ${r.id===p.matchPid?'selected':''}>${esc(r.name)}</option>`).join('')}</select></div>
+      </div>`;
+    if(p.matchPid&&sessMatch){h+=`<div class="hint">Charted pitches for this pitcher: <b>${chartCount}</b> · TrackMan pitches: <b>${p.pitches.length}</b> ${mismatch?`<span class="tag warn">counts differ — check alignment</span>`:`<span class="tag ok">counts match</span>`}</div>`;}
+    h+=`<div class="flexb" style="margin-top:10px">
+        <button class="btn red sm" onclick="applyTM(${idx})">${p.applied?'Re-attach':'Attach to charting'}</button>
+        <button class="btn ghost sm" onclick="previewTM(${idx})">Preview pitches</button>
+        <button class="btn ghost sm" onclick="dropTM(${idx})">Remove</button>
+      </div><div id="tmprev-${idx}"></div></div>`;
+  });
+  box.innerHTML=h;
+  document.querySelectorAll('.tmSess').forEach(s=>s.onchange=e=>{tmParsed[+e.target.dataset.idx].matchSessId=e.target.value;renderTMResults();});
+  document.querySelectorAll('.tmPid').forEach(s=>s.onchange=e=>{tmParsed[+e.target.dataset.idx].matchPid=e.target.value;renderTMResults();});
+}
+window.previewTM=function(idx){const p=tmParsed[idx];const el=document.getElementById('tmprev-'+idx);
+  if(el.innerHTML){el.innerHTML='';return;}
+  let h='<div class="tblscroll" style="margin-top:10px"><table><tr><th>#</th><th>Velo</th><th>Spin</th><th>Eff</th><th>Tilt</th><th>IVB</th><th>HB</th><th>Ext</th><th>RelH</th><th>RelSide</th></tr>';
+  p.pitches.forEach(x=>{h+=`<tr><td>${x.no}</td><td>${x.velo}</td><td>${x.spin}</td><td>${x.spinEff==null?'—':x.spinEff+'%'}</td><td>${minToClock(x.tiltMin)}</td><td>${x.ivb}</td><td>${x.hb}</td><td>${x.ext}</td><td>${x.relH}</td><td>${x.relSide}</td></tr>`;});
+  h+='</table></div>';el.innerHTML=h;};
+window.dropTM=function(idx){tmParsed.splice(idx,1);renderTMResults();};
+window.applyTM=function(idx){const p=tmParsed[idx];
+  // read the dropdowns directly, in case the shown option was the default (no change event fired)
+  const ss=document.querySelector('.tmSess[data-idx="'+idx+'"]');if(ss&&ss.value)p.matchSessId=ss.value;
+  const ps=document.querySelector('.tmPid[data-idx="'+idx+'"]');if(ps&&ps.value)p.matchPid=ps.value;
+  const sess=sessionById(p.matchSessId);
+  if(!sess||!p.matchPid){alert('Pick both a session and a pitcher first.');return;}
+  const charted=pitcherPitches(sess,p.matchPid);
+  if(!charted.length){alert('That pitcher has no charted pitches in that session — chart the outing first, then attach TrackMan.');return;}
+  const n=Math.min(charted.length,p.pitches.length);
+  for(let i=0;i<charted.length;i++){charted[i].tm=(i<p.pitches.length)?p.pitches[i]:null;}
+  sess.tmLoc=sess.tmLoc||{};if(p.locByType)sess.tmLoc[p.matchPid]=p.locByType;
+  p.applied=true;save();renderTMResults();
+  alert(`Attached ${n} pitch${n===1?'':'es'} of TrackMan data to ${pitcherName(p.matchPid)}.`+(charted.length!==p.pitches.length?`\n\nHeads up: ${charted.length} charted vs ${p.pitches.length} TrackMan — extras on the longer side left unmatched.`:''));};
+
+/* ---------------- DATA TAB ---------------- */
+function renderData(){
+  document.getElementById('sessList').innerHTML=DB.sessions.length?DB.sessions.map(s=>{
+    const cnt=s.pitches.length;const tm=s.pitches.filter(p=>p.tm).length;
+    return `<div class="flexb" style="padding:8px 0;border-bottom:1px solid var(--line)">
+      <b>${fmtDate(s.date)}</b> <span>${esc(s.label||'Session')}</span>
+      <span class="pill">${cnt} pitches</span>${tm?`<span class="tag tm">${tm} TM</span>`:''}
+      <div class="spacer"></div>
+      <button class="btn ghost sm" onclick="renameSess('${s.id}')">Rename</button>
+      <button class="btn ghost sm" style="color:#e5657a" onclick="delSess('${s.id}')">Delete</button></div>`;
+  }).join(''):'<div class="muted">No sessions yet.</div>';
+  document.getElementById('rosterList').innerHTML=DB.roster.length?DB.roster.map(p=>
+    `<div class="flexb" style="padding:7px 0;border-bottom:1px solid var(--line)"><span>${esc(p.name)}</span>
+      <div class="spacer"></div><button class="btn ghost sm" onclick="renamePitcher('${p.id}')">Rename</button>
+      <button class="btn ghost sm" style="color:#e5657a" onclick="delPitcher('${p.id}')">Remove</button></div>`).join(''):'<div class="muted">No pitchers yet.</div>';
+}
+document.getElementById('addSessBtn').onclick=()=>{
+  const d=document.getElementById('newSessDate').value||todayISO();
+  const l=document.getElementById('newSessLabel').value.trim()||'Intrasquad';
+  const s={id:uid(),date:d,label:l,pitches:[]};DB.sessions.push(s);DB.meta.activeSessionId=s.id;save();
+  document.getElementById('newSessLabel').value='';renderData();refreshSessionPickers();renderChart();};
+document.getElementById('addPitcherBtn').onclick=addPitcher;
+document.getElementById('newPitcherName').addEventListener('keydown',e=>{if(e.key==='Enter')addPitcher();});
+function addPitcher(){const n=document.getElementById('newPitcherName').value.trim();if(!n)return;
+  DB.roster.push({id:uid(),name:n});save();document.getElementById('newPitcherName').value='';renderData();refreshPitcherPickers();}
+window.renameSess=function(id){const s=sessionById(id);const v=prompt('Session label:',s.label);if(v!=null){s.label=v;save();renderData();refreshSessionPickers();}};
+window.delSess=function(id){if(confirm('Delete this session and all its pitches?')){DB.sessions=DB.sessions.filter(s=>s.id!==id);save();renderData();refreshSessionPickers();renderChart();}};
+window.renamePitcher=function(id){const p=pitcherById(id);const v=prompt('Pitcher name:',p.name);if(v!=null){p.name=v;save();renderData();refreshPitcherPickers();}};
+window.delPitcher=function(id){if(confirm('Remove this pitcher? Charted pitches stay but lose their name.')){DB.roster=DB.roster.filter(p=>p.id!==id);save();renderData();refreshPitcherPickers();}};
+
+document.getElementById('exportBtn').onclick=()=>{
+  const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='shu_pitch_tracking_'+todayISO()+'.json';a.click();};
+document.getElementById('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();
+  rd.onload=()=>{try{const d=JSON.parse(rd.result);if(!d.sessions||!d.roster)throw'bad file';
+    if(confirm('Replace all current data with this file?')){DB=d;DB.meta=DB.meta||{};if(!DB.meta.activeSide)DB.meta.activeSide='R';save();boot();alert('Imported.');}}catch(err){alert('Not a valid export file.');}};
+  rd.readAsText(f);};
+document.getElementById('wipeBtn').onclick=()=>{if(confirm('Erase ALL data on this device? This cannot be undone.')){DB={roster:[],sessions:[],meta:{activeSide:'R'}};save();boot();}};
+document.getElementById('seedBtn').onclick=()=>{if(confirm('Load demo pitchers + a sample session?')){seedDemo();save();boot();goTo('chart');}};
+
+/* ---------------- helpers ---------------- */
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function todayISO(){return new Date().toISOString().slice(0,10);}
+function fmtDate(iso){if(!iso)return '';const[y,m,d]=iso.split('-');if(!d)return iso;
+  const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1];return `${mo} ${+d}, ${y}`;}
+
+function seedDemo(){
+  const names=['Bryan Matuschat','Jake Coleman','Marcus Reyes'];
+  DB.roster=names.map(n=>({id:uid(),name:n}));
+  const pid=DB.roster[0].id;
+  const s={id:uid(),date:'2025-07-01',label:'Intrasquad — White vs Black',pitches:[]};
+  // [type,result,side]
+  const seq=[['FB','CalledStrike','R'],['CT','Ball','R'],['SW','Whiff','R'],['FB','Foul','R'],['CH','InPlay','R'],
+            ['FB','Ball','L'],['FB','CalledStrike','L'],['CT','Foul','L'],['SL','Whiff','L'],['SL','Whiff','L']];
+  let b=0,st=0;
+  seq.forEach(([t,r,side])=>{s.pitches.push({id:uid(),pitcherId:pid,balls:b,strikes:st,type:t,velo:null,result:r,side,tm:null});
+    const rr=advance(b,st,r);if(rr.paEnd){b=0;st=0;}else{b=rr.balls;st=rr.strikes;}});
+  // sample TrackMan locations as normalized [nx,ny] (0=left/top) for a smooth heatmap demo
+  s.tmLoc={};
+  s.tmLoc[pid]={
+    FB:[[0.62,0.4],[0.68,0.35],[0.72,0.45],[0.65,0.5],[0.7,0.55],[0.6,0.45],[0.75,0.4],[0.66,0.6],[0.63,0.38],[0.71,0.5]],
+    CT:[[0.45,0.6],[0.5,0.65],[0.55,0.7],[0.48,0.75],[0.52,0.55],[0.44,0.68],[0.5,0.72],[0.56,0.62],[0.47,0.6],[0.53,0.7]],
+    SL:[[0.55,0.8],[0.6,0.85],[0.58,0.78],[0.62,0.82],[0.5,0.88]],
+    CH:[[0.4,0.75],[0.45,0.8],[0.38,0.82],[0.43,0.78]]
+  };
+  DB.sessions=[s];DB.meta={activeSessionId:s.id,activePitcherId:pid,activeSide:'R'};
+}
+
+/* ---------------- boot ---------------- */
+function boot(){
+  load();
+  if(!document.getElementById('newSessDate').value)document.getElementById('newSessDate').value=todayISO();
+  buildTiles();refreshSessionPickers();renderChart();updateSessInfo();renderData();
+}
+boot();
+</script>
+</body>
+</html>
