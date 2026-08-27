@@ -110,6 +110,28 @@ tr:last-child td{border-bottom:none}
 [data-p]{display:none}[data-p].show{display:block;animation:fi .35s}
 @keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media(max-width:900px){.side{display:none}.kpis,.grid2{grid-template-columns:1fr}}
+
+.aimtop{display:flex;gap:16px;flex-wrap:wrap}
+.aimfield{flex:1;min-width:220px}
+.aimfield label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--dim);margin-bottom:6px}
+.aimfield input,.aimfield select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:11px 12px;font-size:14px;font-family:inherit}
+.aimsearchwrap{position:relative}
+.aimsug{position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1px solid var(--line2);border-radius:10px;margin-top:4px;max-height:280px;overflow:auto;z-index:30}
+.aimsug-item{padding:9px 12px;cursor:pointer;font-size:13.5px;border-bottom:1px solid var(--line)}
+.aimsug-item:hover{background:var(--panel2)}
+.aimsug-item small{color:var(--dim)}
+.aimgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:6px}
+.aimcard{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px}
+.aimcard .t{font-weight:600;font-size:13px;margin-bottom:2px}
+.aimcard .st{font-size:11.5px;color:var(--mut);margin-bottom:8px;min-height:44px}
+.aimwrap{display:flex;justify-content:center}
+.aimwrap canvas{width:100%;max-width:170px;border-radius:8px}
+.aimlegend{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px;font-size:10px;color:var(--dim)}
+.aimlegend .bar{width:70px;height:8px;border-radius:4px}
+.aimlegend .bdiv{background:linear-gradient(90deg,#3b78f6,#f5f5f5,#e11d3a)}
+.aimlegend .bjet{background:linear-gradient(90deg,#fff,#3fb0d9,#5ad07a,#d9b73a,#e11d3a)}
+.aimnote{font-size:11.5px;color:var(--mut);line-height:1.55;margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+@media(max-width:760px){.aimgrid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -127,6 +149,7 @@ tr:last-child td{border-bottom:none}
       <span class="lbl">Team</span>
       <a href="pitch-tracking.html"><i class="ti ti-clipboard-list"></i> SHUpitcherhub</a>
       <span class="lbl">Models</span>
+      <a data-go="aim"><i class="ti ti-target-arrow"></i> Optimal Aim</a>
       <a data-go="models"><i class="ti ti-chart-dots"></i> Stuff+ / Command+</a>
       <a data-go="comps"><i class="ti ti-flask"></i> Arsenal Lab</a>
       <a data-go="heat"><i class="ti ti-grid-dots"></i> Heatmaps</a>
@@ -290,6 +313,17 @@ tr:last-child td{border-bottom:none}
       </div>
       <div id="tnOut"></div>
     </section>
+    <section data-p="aim">
+      <h2 class="sec">Optimal Aim</h2><p class="sub">Where each arm should aim every pitch — run-value surface × their own command, from the 2026 D1 season.</p>
+      <div class="panel" style="max-width:1080px">
+        <div class="aimtop">
+          <div class="aimfield"><label>Pitcher</label><div class="aimsearchwrap"><input id="aimSearch" placeholder="Search any 2026 D1 arm — e.g. Matuschat" autocomplete="off"><div class="aimsug" id="aimSug" style="display:none"></div></div></div>
+          <div class="aimfield"><label>Pitch type</label><select id="aimType"></select></div>
+        </div>
+        <div id="aimStatus" class="mut" style="font-size:13px;margin-top:12px">Search a pitcher to see where they should aim each pitch.</div>
+      </div>
+      <div id="aimBody" style="max-width:1080px;margin-top:16px"></div>
+    </section>
     <section data-p="about">
       <h2 class="sec">About APEX</h2><p class="sub">What's under the hood.</p>
       <div class="panel" style="max-width:780px">
@@ -345,7 +379,7 @@ function boot(){
   var lead=P.filter(function(p){return p.n>=150&&p.stuff!=null;}).sort(function(a,b){return b.stuff-a.stuff;}).slice(0,12);
   el('dashLead').innerHTML=lead.map(function(p){return row(p,['name','tn','fb','stuff','comp']);}).join('');
   wireRows('dashLead');
-  buildPitchers();buildLeaders();buildModels();buildComps();buildHeat();buildTunnel();buildSearch();
+  buildPitchers();buildLeaders();buildModels();buildComps();buildHeat();buildTunnel();buildSearch();buildAim();
   show('dash');
 }
 function row(p,cols){
@@ -1009,6 +1043,23 @@ function buildSearch(){
     sg.querySelectorAll('div').forEach(function(d){d.onclick=function(){gs.value='';sg.style.display='none';openPitcher(+d.getAttribute('data-i'));};});};
   document.addEventListener('click',function(e){var sc=document.querySelector('.search');if(sc&&!sc.contains(e.target))sg.style.display='none';});
 }
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+/* ================= OPTIMAL AIM ================= */
+var LEAGUE_WHIFF={"4-Seam":[37,41,41,40,39,39,38,25,22,22,21,22,24,26,20,14,14,13,15,17,24,18,10,10,9,11,13,23,19,11,8,8,9,12,23,26,13,8,9,10,14,30,41,25,21,18,22,27,49],"Sinker":[31,34,33,34,31,36,31,21,16,18,19,20,21,30,18,11,11,11,14,15,24,20,7,7,7,9,11,20,27,10,8,8,8,12,26,37,19,13,10,13,18,31,52,38,32,27,30,35,49],"Cutter":[30,46,40,39,38,35,26,24,30,25,23,22,22,29,20,16,14,14,14,17,25,24,12,9,9,10,15,27,31,16,13,11,14,19,39,48,27,23,21,24,32,57,77,55,45,47,51,60,79],"Slider":[34,34,34,34,29,34,29,23,22,19,20,19,23,31,20,15,14,12,14,17,27,22,11,10,10,12,16,30,33,16,13,12,15,22,40,50,28,23,22,25,33,58,80,61,51,49,55,64,83],"Sweeper":[32,39,31,47,29,40,29,33,26,27,28,20,24,35,28,24,20,16,23,23,32,23,15,19,15,16,23,39,47,20,13,15,19,23,47,44,28,25,23,20,34,58,70,54,36,43,45,60,84],"Curveball":[20,25,26,30,22,29,23,20,18,13,15,18,17,23,14,13,10,9,11,14,18,16,12,9,9,9,12,21,24,14,13,14,14,18,31,41,28,24,24,26,30,44,74,58,55,56,59,65,80],"Changeup":[29,26,23,28,25,27,33,26,19,15,16,15,19,25,20,14,13,14,13,16,26,25,17,14,16,16,17,27,32,23,21,20,22,23,33,45,35,33,32,32,34,46,66,60,56,57,56,60,69],"Splitter":[29,28,29,26,38,35,36,30,18,22,22,24,27,28,25,19,16,17,17,25,33,28,21,21,17,18,22,26,34,27,27,22,21,25,40,49,37,34,34,34,40,49,65,60,65,59,60,70,76]};
+var AIM_ZL=-0.83,AIM_ZR=0.83,AIM_ZB=1.6,AIM_ZT=3.5,AIM_CW=(AIM_ZR-AIM_ZL)/5,AIM_X0=AIM_ZL-AIM_CW,AIM_RH=(AIM_ZT-AIM_ZB)/5,AIM_Y1=AIM_ZT+AIM_RH;
+function aimCell(px,py){if(px===NA||py===NA)return -1;var x=-px/10,y=py/10;if(x<-6||x>6||y<-3||y>8)return -1;var c=Math.floor((x-AIM_X0)/AIM_CW),r=Math.floor((AIM_Y1-y)/AIM_RH);c=c<0?0:c>6?6:c;r=r<0?0:r>6?6:r;return r*7+c;}
+function aimJet(t){t=Math.max(0,Math.min(1,t));var c=function(v){return Math.max(0,Math.min(1,v));};return [c(1.5-Math.abs(4*t-3))*255,c(1.5-Math.abs(4*t-2))*255,c(1.5-Math.abs(4*t-1))*255];}
+function aimBuildRV(whiff){var RV=new Array(49),cx=3,cy=3;for(var y=0;y<7;y++)for(var x=0;x<7;x++){var i=y*7+x;var inZ=(x>=1&&x<=5&&y>=1&&y<=5)?1:0;var wr=Math.max(0,Math.min(1,(whiff[i]||0)/100));var dx=x-cx,dy=y-cy,d2=dx*dx+dy*dy;var swing=0.12+0.62*Math.exp(-d2/(2*2.2*2.2));var csIfTake=inZ?0.86:0.05;var heart=Math.exp(-d2/(2*1.3*1.3));var contactRV=0.075*heart-0.010*(1-inZ);RV[i]=swing*(wr*-0.11+(1-wr)*contactRV)+(1-swing)*(csIfTake*-0.065+(1-csIfTake)*0.055);}return RV;}
+function aimCompute(missD,rv){var s=0,i;for(i=0;i<49;i++)s+=(missD[i]||0);if(s<=0)s=1;var K=missD.map(function(v){return (v||0)/s;}),cx=3,cy=3,E=new Array(49);for(i=0;i<49;i++)E[i]=0;for(var ay=0;ay<7;ay++)for(var ax=0;ax<7;ax++){var num=0,den=0;for(var oy=-3;oy<=3;oy++)for(var ox=-3;ox<=3;ox++){var ky=cy+oy,kx=cx+ox;if(kx<0||kx>6||ky<0||ky>6)continue;var w=K[ky*7+kx];if(w<=0)continue;var ly=ay+oy,lx=ax+ox;if(lx<0||lx>6||ly<0||ly>6)continue;num+=w*rv[ly*7+lx];den+=w;}E[ay*7+ax]=den>0?num/den:0;}var bi=0,bv=Infinity;for(i=0;i<49;i++){if(E[i]<bv){bv=E[i];bi=i;}}return {E:E,best:{x:bi%7,y:Math.floor(bi/7),rv:bv},centerRV:E[cy*7+cx]};}
+function aimColorDiv(t){t=Math.max(-1,Math.min(1,t));var w=[245,245,245],b=[59,120,246],r=[225,29,58];var a=Math.abs(t),c=t<0?b:r;return [Math.round(w[0]*(1-a)+c[0]*a),Math.round(w[1]*(1-a)+c[1]*a),Math.round(w[2]*(1-a)+c[2]*a)];}
+function aimDraw(cv,grid,opt){opt=opt||{};var W=cv.width,H=cv.height,ctx=cv.getContext('2d');ctx.clearRect(0,0,W,H);var maxAbs=0,max=0,i;for(i=0;i<49;i++){var v=grid[i];if(v==null)continue;if(Math.abs(v)>maxAbs)maxAbs=Math.abs(v);if(v>max)max=v;}if(maxAbs<=0)maxAbs=1;if(max<=0)max=1;var sm=document.createElement('canvas');sm.width=7;sm.height=7;var sc=sm.getContext('2d');var img=sc.createImageData(7,7);var dd=img.data;for(i=0;i<49;i++){var c;if(opt.diverging){c=aimColorDiv((grid[i]||0)/maxAbs);}else{var t=Math.max(0,Math.min(1,(grid[i]||0)/max));var jc=aimJet(t);var a=Math.min(1,t*1.25);c=[255*(1-a)+jc[0]*a,255*(1-a)+jc[1]*a,255*(1-a)+jc[2]*a];}dd[i*4]=c[0];dd[i*4+1]=c[1];dd[i*4+2]=c[2];dd[i*4+3]=255;}sc.putImageData(img,0,0);ctx.imageSmoothingEnabled=true;ctx.drawImage(sm,0,0,W,H);var cw=W/7,ch=H/7,zx=cw*1,zy=ch*0.6,zw=cw*5,zh=ch*5.2;ctx.strokeStyle='rgba(10,16,32,.82)';ctx.lineWidth=2;ctx.strokeRect(zx,zy,zw,zh);ctx.strokeStyle='rgba(10,16,32,.3)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(zx+zw/3,zy);ctx.lineTo(zx+zw/3,zy+zh);ctx.moveTo(zx+2*zw/3,zy);ctx.lineTo(zx+2*zw/3,zy+zh);ctx.moveTo(zx,zy+zh/3);ctx.lineTo(zx+zw,zy+zh/3);ctx.moveTo(zx,zy+2*zh/3);ctx.lineTo(zx+zw,zy+2*zh/3);ctx.stroke();if(opt.mark){var mx=(opt.mark.x+0.5)*cw,my=(opt.mark.y+0.5)*ch;ctx.strokeStyle='#0a1020';ctx.lineWidth=3.5;ctx.beginPath();ctx.arc(mx,my,8,0,7);ctx.stroke();ctx.strokeStyle='#fff';ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(mx,my,8,0,7);ctx.stroke();ctx.fillStyle='#0a1020';ctx.beginPath();ctx.arc(mx,my,2.2,0,7);ctx.fill();}}
+var AIMSEL=null;
+function buildAim(){var inp=el('aimSearch'),sug=el('aimSug');if(!inp)return;inp.oninput=function(){var q=inp.value.trim().toLowerCase();if(!q){sug.style.display='none';return;}var hits=[];for(var k=0;k<P.length&&hits.length<25;k++){if(P[k].name.toLowerCase().indexOf(q)>=0)hits.push(k);}sug.innerHTML=hits.map(function(idx){var p=P[idx];return '<div class="aimsug-item" data-k="'+idx+'">'+esc(p.name)+' <small>'+esc(p.tn||p.team)+' · '+p.hand+'HP</small></div>';}).join('')||'<div class="aimsug-item"><small>no match</small></div>';sug.style.display='block';sug.querySelectorAll('[data-k]').forEach(function(d){d.onclick=function(){selectAimP(+d.getAttribute('data-k'));sug.style.display='none';};});};document.body.addEventListener('click',function(e){if(sug&&!sug.contains(e.target)&&e.target!==inp)sug.style.display='none';});}
+function selectAimP(idx){var p=P[idx];el('aimSearch').value=p.name;el('aimStatus').textContent='Loading '+p.name+'’s season…';getReport(p).then(function(rep){AIMSEL={p:p,rep:rep};var types=(rep.stbl||[]).filter(function(a){return LEAGUE_WHIFF[a.pt]&&a.n>=10;}).sort(function(a,b){return (b.u||0)-(a.u||0);});var sel=el('aimType');sel.innerHTML=types.map(function(a){return '<option value="'+a.pt+'">'+a.pt+' · '+Math.round(a.u||0)+'% used</option>';}).join('');sel.onchange=renderAim;el('aimStatus').textContent='';if(types.length)renderAim();else el('aimBody').innerHTML='<div class="card" style="color:var(--mut)">No pitch types with location data for this arm.</div>';}).catch(function(e){el('aimStatus').innerHTML='<span style="color:var(--mag)">Couldn’t load pitcher: '+esc(e.message)+'</span>';});}
+function aimMissDist(rep,pt){var m=new Array(49),i;for(i=0;i<49;i++)m[i]=0;var used=0,excl=0;for(var k=0;k<rep.px.length;k++){if(PTIDX[rep.pt[k]]!==pt)continue;if(rep.ct[k]%3===2){excl++;continue;}var cc=aimCell(rep.px[k],rep.py[k]);if(cc>=0){m[cc]++;used++;}}return {m:m,used:used,excl:excl};}
+function renderAim(){if(!AIMSEL)return;var p=AIMSEL.p,rep=AIMSEL.rep,pt=el('aimType').value;var md=aimMissDist(rep,pt);var whiff=LEAGUE_WHIFF[pt];if(!whiff){el('aimBody').innerHTML='<div class="card" style="color:var(--mut)">No league surface for '+esc(pt)+'.</div>';return;}var rv=aimBuildRV(whiff),res=aimCompute(md.m,rv);var vx=res.best.x,vy=res.best.y;var vlab=vy<=1?'up':vy===2?'up in the zone':vy===3?'middle height':vy===4?'down in the zone':'down';var hlab=vx<=1?'off the edge (catcher’s left)':vx===2?'left third':vx===3?'middle':vx===4?'right third':'off the edge (catcher’s right)';var gain=(res.centerRV-res.best.rv)*100;var fn=p.name.split(' ')[0];var low=md.used<12?'<span class="pill" style="color:var(--mag)">low sample</span>':'';var b=el('aimBody');b.innerHTML='<div class="card"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px"><b style="font-size:15px">'+esc(p.name)+' — '+esc(pt)+'</b><span class="pill">'+esc(p.tn||p.team)+'</span><span class="pill">'+p.hand+'HP</span>'+low+'<span style="flex:1"></span><span class="mut" style="font-size:12px">'+md.used+' pre-2K pitches · '+md.excl+' two-strike excluded</span></div><div class="kpis" style="grid-template-columns:1fr 1fr;margin:0 0 16px"><div class="kpi"><div class="n" style="font-size:22px;line-height:1.2">'+vlab+', '+hlab+'</div><div class="k">Optimal aim · catcher’s view</div></div><div class="kpi"><div class="n">'+(gain>=0?'−':'+')+Math.abs(gain).toFixed(1)+'</div><div class="k">Run value / 100 vs middle-middle</div></div></div><div class="aimgrid"><div class="aimcard"><div class="t">1 · Run-value surface</div><div class="st">Where this pitch is valuable, league-wide. Blue = good, red = damage.</div><div class="aimwrap"><canvas id="aimRV" width="154" height="175"></canvas></div><div class="aimlegend"><span>good</span><span class="bar bdiv"></span><span>bad</span></div></div><div class="aimcard"><div class="t">2 · Command / miss</div><div class="st">Where <b>'+esc(fn)+'</b>’s '+esc(pt)+' actually goes, pre-two-strikes.</div><div class="aimwrap"><canvas id="aimMiss" width="154" height="175"></canvas></div><div class="aimlegend"><span>rare</span><span class="bar bjet"></span><span>often</span></div></div><div class="aimcard"><div class="t">3 · Expected RV by aim</div><div class="st">RV after his misses. The ◎ marks the aim that minimizes run value.</div><div class="aimwrap"><canvas id="aimE" width="154" height="175"></canvas></div><div class="aimlegend"><span>good</span><span class="bar bdiv"></span><span>bad</span></div></div></div><div class="aimnote">Run-value surface = 2026 D1 league average for this pitch type (whiff-by-location from 1.83M pitches, plus called-strike and heart-of-zone-damage geometry). Miss distribution = '+esc(fn)+'’s own 2026 locations in <b>counts before two strikes</b> (assuming a middle-middle aim there). The optimal aim shifts off center to compensate for where he actually misses.</div></div>';aimDraw(el('aimRV'),rv,{diverging:true});aimDraw(el('aimMiss'),md.m,{});aimDraw(el('aimE'),res.E,{diverging:true,mark:res.best});}
+
 </script>
 </body>
 </html>
