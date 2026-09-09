@@ -195,10 +195,12 @@
 <section class="view" id="v-reports">
   <div class="card">
     <div class="row">
+      <div><label class="fld">Type</label><select id="rpKind"><option value="">Game + Intersquad</option><option value="game">Game only</option><option value="intersquad">Intersquad only</option></select></div>
       <div><label class="fld">Session</label><select id="rpSession"></select></div>
       <div><label class="fld">Pitcher</label><select id="rpPitcher"></select></div>
       <div><label class="fld">Batter hand</label><select id="rpSide"><option value="">All batters</option><option value="R">vs RHH</option><option value="L">vs LHH</option></select></div>
     </div>
+    <div class="hint">Bullpens aren't charted, so they don't appear here — see them in Trends & Command.</div>
   </div>
   <div id="rpBody"></div>
 </section>
@@ -207,6 +209,7 @@
 <section class="view" id="v-leaderboard">
   <div class="card">
     <div class="row">
+      <div><label class="fld">Type</label><select id="lbKind"><option value="">Game + Intersquad</option><option value="game">Game only</option><option value="intersquad">Intersquad only</option></select></div>
       <div><label class="fld">Sessions</label><select id="lbSession"></select></div>
       <div><label class="fld">Batter hand</label><select id="lbSide"><option value="">All batters</option><option value="R">vs RHH</option><option value="L">vs LHH</option></select></div>
       <div><label class="fld">Pitch type</label><select id="lbType"></select></div>
@@ -239,7 +242,7 @@
     <h3>Trends <span class="muted" style="text-transform:none;letter-spacing:0">— TrackMan metrics over time, per pitcher</span></h3>
     <div class="row">
       <div><label class="fld">Pitcher</label><select id="trPitcher"></select></div>
-      <div><label class="fld">Environment</label><select id="trEnv"><option value="">All</option><option value="game">Game</option><option value="bullpen">Bullpen</option></select></div>
+      <div><label class="fld">Environment</label><select id="trEnv"><option value="">All</option><option value="game">Game</option><option value="intersquad">Intersquad</option><option value="bullpen">Bullpen</option></select></div>
     </div>
     <div class="row" style="margin-top:8px">
       <div><label class="fld">Pitch type</label><select id="trType"></select></div>
@@ -252,8 +255,9 @@
 <!-- ============ COMMAND ============ -->
 <section class="view" id="v-command">
   <div class="card">
-    <h3>Command <span class="muted" style="text-transform:none;letter-spacing:0">— miss from middle-middle, games only</span></h3>
-    <div class="row"><div><label class="fld">Pitcher</label><select id="cmPitcher"></select></div></div>
+    <h3>Command <span class="muted" style="text-transform:none;letter-spacing:0">— miss from middle-middle (catcher's view)</span></h3>
+    <div class="row"><div><label class="fld">Pitcher</label><select id="cmPitcher"></select></div>
+      <div><label class="fld">Environment</label><select id="cmEnv"><option value="">All</option><option value="game">Game</option><option value="intersquad">Intersquad</option><option value="bullpen">Bullpen</option></select></div></div>
   </div>
   <div id="cmBody"></div>
 </section>
@@ -264,6 +268,7 @@
     <h3>Sessions</h3>
     <div class="row" style="margin-bottom:10px">
       <div><label class="fld">Date</label><input type="date" id="newSessDate"></div>
+      <div><label class="fld">Type</label><select id="newSessKind"><option value="game">Game</option><option value="intersquad">Intersquad</option></select></div>
       <div><label class="fld">Label (e.g. Intrasquad — Team White vs Black)</label><input type="text" id="newSessLabel" placeholder="Intrasquad"></div>
       <div style="flex:0 0 auto;display:flex;align-items:flex-end"><button class="btn red" id="addSessBtn">+ Add session</button></div>
     </div>
@@ -680,13 +685,16 @@ function tmTableHtml(m, tmLoc){
   h+=`</table></div><div class="hint">Averages across pitches matched to a TrackMan row. Zone% = share of that pitch's TrackMan locations inside the strike zone. Release &amp; extension in feet, break in inches, spin in rpm.</div></div>`;return h;
 }
 function refreshReportPickers(){
+  const kind=(document.getElementById('rpKind')||{}).value||'';
   const el=document.getElementById('rpSession');const cur=el.value;
-  el.innerHTML=DB.sessions.map(s=>`<option value="${s.id}">${fmtDate(s.date)} · ${esc(s.label||'Session')}</option>`).join('');
-  if(cur&&sessionById(cur))el.value=cur; else if(DB.meta.activeSessionId)el.value=DB.meta.activeSessionId;
+  const list=DB.sessions.filter(s=>!kind||(s.kind||'game')===kind);
+  el.innerHTML=list.map(s=>`<option value="${s.id}">${fmtDate(s.date)} · ${esc(s.label||'Session')} · ${(s.kind||'game')==='game'?'Game':'Intersquad'}</option>`).join('')||'<option value="">— none —</option>';
+  if(cur&&list.some(s=>s.id===cur))el.value=cur; else if(DB.meta.activeSessionId&&list.some(s=>s.id===DB.meta.activeSessionId))el.value=DB.meta.activeSessionId;
   const rp=document.getElementById('rpPitcher');const curp=rp.value;
   rp.innerHTML='<option value="">All pitchers</option>'+DB.roster.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
   if(curp)rp.value=curp;
 }
+document.getElementById('rpKind').onchange=renderReports;
 document.getElementById('rpSession').onchange=renderReports;
 document.getElementById('rpPitcher').onchange=renderReports;
 document.getElementById('rpSide').onchange=renderReports;
@@ -703,12 +711,14 @@ function avgTM(list){
 /* ---------------- LEADERBOARD ---------------- */
 let LB={col:'n',dir:-1};
 function renderLeaderboard(){
-  const ssEl=document.getElementById('lbSession'),tyEl=document.getElementById('lbType'),sdEl=document.getElementById('lbSide');
-  const curS=ssEl.value;ssEl.innerHTML='<option value="">All sessions</option>'+DB.sessions.map(s=>`<option value="${s.id}">${fmtDate(s.date)} · ${esc(s.label||'')}</option>`).join('');if(curS)ssEl.value=curS;
+  const ssEl=document.getElementById('lbSession'),tyEl=document.getElementById('lbType'),sdEl=document.getElementById('lbSide'),kindEl=document.getElementById('lbKind');
+  const kind=kindEl?kindEl.value:'';
+  const allowed=DB.sessions.filter(s=>!kind||(s.kind||'game')===kind);
+  const curS=ssEl.value;ssEl.innerHTML='<option value="">All sessions</option>'+allowed.map(s=>`<option value="${s.id}">${fmtDate(s.date)} · ${esc(s.label||'')}</option>`).join('');if(curS&&allowed.some(s=>s.id===curS))ssEl.value=curS;else ssEl.value='';
   const curT=tyEl.value;tyEl.innerHTML='<option value="">All pitches</option>'+PITCH_TYPES.map(t=>`<option value="${t.code}">${t.label}</option>`).join('');if(curT)tyEl.value=curT;
-  ssEl.onchange=renderLeaderboard;tyEl.onchange=renderLeaderboard;sdEl.onchange=renderLeaderboard;
+  ssEl.onchange=renderLeaderboard;tyEl.onchange=renderLeaderboard;sdEl.onchange=renderLeaderboard;if(kindEl)kindEl.onchange=renderLeaderboard;
   const sessVal=ssEl.value,side=sdEl.value,typeF=tyEl.value;
-  const sessIds=sessVal?[sessVal]:DB.sessions.map(s=>s.id);
+  const sessIds=sessVal?[sessVal]:allowed.map(s=>s.id);
   const rows=DB.roster.map(p=>{
     const m=computeMetrics(gatherPAs(sessIds,p.id),side,typeF||undefined);
     if(!m.n)return null;
@@ -745,29 +755,33 @@ function renderLeaderboard(){
 }
 
 /* ---------------- PITCHER DATABASE ---------------- */
-let PD={pid:null,sessIds:null,side:''}; // sessIds null = all outings
+let PD={pid:null,sessIds:null,side:'',kind:''}; // sessIds null = all outings; kind ''=game+intersquad
+function pdKindSel(){return `<select id="pdKind" style="width:auto"><option value="" ${PD.kind===''?'selected':''}>Game + Intersquad</option><option value="game" ${PD.kind==='game'?'selected':''}>Game only</option><option value="intersquad" ${PD.kind==='intersquad'?'selected':''}>Intersquad only</option></select>`;}
+function pdMatchKind(s){return !PD.kind||(s.kind||'game')===PD.kind;}
 function renderPitcherDB(){
   const body=document.getElementById('pdBody');
   if(!DB.roster.length){body.innerHTML='<div class="card empty">No pitchers yet — add your staff in the Data tab.</div>';return;}
   if(!PD.pid||!pitcherById(PD.pid)){
     // roster list
-    let h='<div class="card"><h3>Pitcher database</h3><p class="muted" style="margin:0 0 10px">Click a pitcher to see their outings and combined stats, heatmaps &amp; TrackMan.</p><div class="tblscroll"><table><tr><th>Pitcher</th><th>Outings</th><th>Pitches</th><th>Strike%</th><th>CSW%</th></tr>';
+    let h='<div class="card"><div class="flexb"><h3 style="margin:0">Pitcher database</h3><div class="spacer"></div>'+pdKindSel()+'</div><p class="muted" style="margin:8px 0 10px">Click a pitcher to see their outings and combined stats, heatmaps &amp; TrackMan. Bullpens aren\'t charted, so this tab covers game &amp; intersquad only.</p><div class="tblscroll"><table><tr><th>Pitcher</th><th>Outings</th><th>Pitches</th><th>Strike%</th><th>CSW%</th></tr>';
     DB.roster.forEach(p=>{
-      const sessIds=DB.sessions.filter(s=>s.pitches.some(x=>x.pitcherId===p.id)).map(s=>s.id);
+      const sessIds=DB.sessions.filter(s=>pdMatchKind(s)&&s.pitches.some(x=>x.pitcherId===p.id)).map(s=>s.id);
       const m=computeMetrics(gatherPAs(sessIds,p.id),'');
       h+=`<tr><td><span class="pitcherlink" data-pid="${p.id}">${esc(p.name)}</span></td><td>${sessIds.length}</td><td>${m.n}</td><td>${fmtPct(pct(m.strikes,m.n))}</td><td>${fmtPct(pct(m.csw,m.n))}</td></tr>`;
     });
     h+='</table></div></div>';
     body.innerHTML=h;
+    const kEl=document.getElementById('pdKind');if(kEl)kEl.onchange=e=>{PD.kind=e.target.value;renderPitcherDB();};
     body.querySelectorAll('[data-pid]').forEach(el=>el.onclick=()=>{PD.pid=el.dataset.pid;PD.sessIds=null;renderPitcherDB();});
     return;
   }
   // detail
   const p=pitcherById(PD.pid);
-  const outings=DB.sessions.filter(s=>s.pitches.some(x=>x.pitcherId===p.id));
+  const outings=DB.sessions.filter(s=>pdMatchKind(s)&&s.pitches.some(x=>x.pitcherId===p.id));
   const activeSessIds=PD.sessIds||outings.map(s=>s.id);
   let h=`<div class="card"><div class="flexb"><button class="btn ghost sm" id="pdBack">← All pitchers</button>
     <h3 style="margin:0">${esc(p.name)}</h3><div class="spacer"></div>
+    ${pdKindSel()}
     <select id="pdSide" style="width:auto"><option value="">All batters</option><option value="R" ${PD.side==='R'?'selected':''}>vs RHH</option><option value="L" ${PD.side==='L'?'selected':''}>vs LHH</option></select></div>
     <div class="hint">Outings — tap to include/exclude:</div><div class="flexb" style="margin-top:8px">
     <span class="pill click ${!PD.sessIds?'on':''}" data-all="1">All outings</span>`;
@@ -786,6 +800,7 @@ function renderPitcherDB(){
   body.innerHTML=h;
   document.getElementById('pdBack').onclick=()=>{PD.pid=null;renderPitcherDB();};
   document.getElementById('pdSide').onchange=e=>{PD.side=e.target.value;renderPitcherDB();};
+  {const kEl=document.getElementById('pdKind');if(kEl)kEl.onchange=e=>{PD.kind=e.target.value;PD.sessIds=null;renderPitcherDB();};}
   body.querySelectorAll('[data-all]').forEach(el=>el.onclick=()=>{PD.sessIds=null;renderPitcherDB();});
   body.querySelectorAll('[data-sid]').forEach(el=>el.onclick=()=>{
     const id=el.dataset.sid;let cur=PD.sessIds?[...PD.sessIds]:outings.map(s=>s.id);
@@ -907,9 +922,11 @@ function renderTMResults(){
           <select data-idx="${idx}" class="tmSess">${DB.sessions.map(s=>`<option value="${s.id}" ${s.id===p.matchSessId?'selected':''}>${fmtDate(s.date)} · ${esc(s.label||'')}</option>`).join('')||'<option value="">— none —</option>'}</select></div>
         <div><label class="fld">Maps to pitcher</label>
           <select data-idx="${idx}" class="tmPid"><option value="">— pick —</option>${DB.roster.map(r=>`<option value="${r.id}" ${r.id===p.matchPid?'selected':''}>${esc(r.name)}</option>`).join('')}</select></div>
+        <div><label class="fld">Date</label><input type="date" data-idx="${idx}" class="tmDate" value="${p.date||''}"></div>
         <div><label class="fld">Environment</label>
-          <select data-idx="${idx}" class="tmEnv"><option value="game" ${p.matchSessId?'selected':''}>Game</option><option value="bullpen" ${p.matchSessId?'':'selected'}>Bullpen</option></select></div>
-      </div>`;
+          <select data-idx="${idx}" class="tmEnv"><option value="game" ${p.matchSessId?'selected':''}>Game</option><option value="intersquad">Intersquad</option><option value="bullpen" ${p.matchSessId?'':'selected'}>Bullpen</option></select></div>
+      </div>
+      <div class="hint">If the date from the PDF is wrong, fix it here — it's used to label the outing${''}. Game/Intersquad attach to a charted session; Bullpen stands alone (feeds Trends & Command).</div>`;
     if(p.matchPid&&sessMatch){h+=`<div class="hint">Charted pitches for this pitcher: <b>${chartCount}</b> · TrackMan pitches: <b>${p.pitches.length}</b> ${mismatch?`<span class="tag warn">counts differ — check alignment</span>`:`<span class="tag ok">counts match</span>`}</div>`;}
     h+=`<div class="flexb" style="margin-top:10px">
         <button class="btn red sm" onclick="saveTM(${idx})">${p.applied?'Re-save':'Save outing'}</button>
@@ -920,6 +937,8 @@ function renderTMResults(){
   box.innerHTML=h;
   document.querySelectorAll('.tmSess').forEach(s=>s.onchange=e=>{tmParsed[+e.target.dataset.idx].matchSessId=e.target.value;renderTMResults();});
   document.querySelectorAll('.tmPid').forEach(s=>s.onchange=e=>{tmParsed[+e.target.dataset.idx].matchPid=e.target.value;renderTMResults();});
+  document.querySelectorAll('.tmDate').forEach(s=>s.onchange=e=>{tmParsed[+e.target.dataset.idx].date=e.target.value;});
+  document.querySelectorAll('.tmEnv').forEach(s=>s.onchange=e=>{tmParsed[+e.target.dataset.idx]._env=e.target.value;});
 }
 window.previewTM=function(idx){const p=tmParsed[idx];const el=document.getElementById('tmprev-'+idx);
   if(el.innerHTML){el.innerHTML='';return;}
@@ -945,10 +964,13 @@ window.applyTM=function(idx){const p=tmParsed[idx];
 function renderData(){
   document.getElementById('sessList').innerHTML=DB.sessions.length?DB.sessions.map(s=>{
     const cnt=s.pitches.length;const tm=s.pitches.filter(p=>p.tm).length;
+    const k=s.kind||'game';
     return `<div class="flexb" style="padding:8px 0;border-bottom:1px solid var(--line)">
       <b>${fmtDate(s.date)}</b> <span>${esc(s.label||'Session')}</span>
+      <span class="tag ${k==='game'?'ok':'warn'}">${k==='game'?'Game':'Intersquad'}</span>
       <span class="pill">${cnt} pitches</span>${tm?`<span class="tag tm">${tm} TM</span>`:''}
       <div class="spacer"></div>
+      <button class="btn ghost sm" onclick="toggleKind('${s.id}')">↔ ${k==='game'?'Intersquad':'Game'}</button>
       <button class="btn ghost sm" onclick="renameSess('${s.id}')">Rename</button>
       <button class="btn ghost sm" style="color:#e5657a" onclick="delSess('${s.id}')">Delete</button></div>`;
   }).join(''):'<div class="muted">No sessions yet.</div>';
@@ -960,12 +982,14 @@ function renderData(){
 document.getElementById('addSessBtn').onclick=()=>{
   const d=document.getElementById('newSessDate').value||todayISO();
   const l=document.getElementById('newSessLabel').value.trim()||'Intrasquad';
-  const s={id:uid(),date:d,label:l,pitches:[]};DB.sessions.push(s);DB.meta.activeSessionId=s.id;save();
+  const kind=(document.getElementById('newSessKind')||{}).value||'game';
+  const s={id:uid(),date:d,label:l,kind,pitches:[]};DB.sessions.push(s);DB.meta.activeSessionId=s.id;save();
   document.getElementById('newSessLabel').value='';renderData();refreshSessionPickers();renderChart();};
 document.getElementById('addPitcherBtn').onclick=addPitcher;
 document.getElementById('newPitcherName').addEventListener('keydown',e=>{if(e.key==='Enter')addPitcher();});
 function addPitcher(){const n=document.getElementById('newPitcherName').value.trim();if(!n)return;
   DB.roster.push({id:uid(),name:n});save();document.getElementById('newPitcherName').value='';renderData();refreshPitcherPickers();}
+window.toggleKind=function(id){const s=sessionById(id);if(!s)return;s.kind=((s.kind||'game')==='game')?'intersquad':'game';save();renderData();};
 window.renameSess=function(id){const s=sessionById(id);const v=prompt('Session label:',s.label);if(v!=null){s.label=v;save();renderData();refreshSessionPickers();}};
 window.delSess=function(id){if(confirm('Delete this session and all its pitches?')){DB.sessions=DB.sessions.filter(s=>s.id!==id);save();renderData();refreshSessionPickers();renderChart();}};
 window.renamePitcher=function(id){const p=pitcherById(id);const v=prompt('Pitcher name:',p.name);if(v!=null){p.name=v;save();renderData();refreshPitcherPickers();}};
@@ -1047,34 +1071,39 @@ function byTypeMetrics(pitches,summary){
     ext:rnd(avg(b.ext),2),relH:rnd(avg(b.relH),2),relSide:rnd(avg(b.relSide),2),spinEff:b.spinEff.length?Math.round(avg(b.spinEff)):null};}
   return out;
 }
-function saveOuting(pid,name,date,env,byType,sessionId){
+function saveOuting(pid,name,date,env,byType,sessionId,loc){
   DB.outings=DB.outings||[];
-  const id=pid+'|'+(date||'nodate')+'|'+env;
-  const rec={id,pitcherId:pid,name:name||pitcherName(pid),date:date||null,env,byType,sessionId:sessionId||null,ts:Date.now()};
+  const id=sessionId?(pid+'|'+sessionId):(pid+'|'+(date||'nodate')+'|'+env);
+  const rec={id,pitcherId:pid,name:name||pitcherName(pid),date:date||null,env,byType,loc:loc||null,sessionId:sessionId||null,ts:Date.now()};
   const i=DB.outings.findIndex(o=>o.id===id);
   if(i>=0)DB.outings[i]=rec;else DB.outings.push(rec);
 }
+// Derive an outing's live environment: bullpens stand alone; charted outings follow their session's kind.
+function outEnv(o){if(!o)return 'game';if(o.env==='bullpen'||!o.sessionId)return o.env||'bullpen';const s=sessionById(o.sessionId);return s?(s.kind||'game'):(o.env||'game');}
 window.saveTM=function(idx){
   const p=tmParsed[idx];
-  const es=document.querySelector('.tmEnv[data-idx="'+idx+'"]');const env=es?es.value:'game';
+  const es=document.querySelector('.tmEnv[data-idx="'+idx+'"]');const env=es?es.value:(p._env||'game');
+  const ds=document.querySelector('.tmDate[data-idx="'+idx+'"]');if(ds&&ds.value)p.date=ds.value;
   const ps=document.querySelector('.tmPid[data-idx="'+idx+'"]');if(ps&&ps.value)p.matchPid=ps.value;
   if(!p.matchPid){alert('Pick which pitcher this is first.');return;}
   const summary=p.summary||parseTypeSummary(p._text||'');
   const byType=byTypeMetrics(p.pitches||[],summary);
-  if(env==='game'){
+  if(env==='bullpen'){
+    saveOuting(p.matchPid,p.name,p.date,'bullpen',byType,null,p.locByType||null);
+    p.applied=true;save();renderTMResults();
+    alert('Saved as a BULLPEN outing for '+pitcherName(p.matchPid)+'. It feeds the Trends board and the Command board (location clouds).');
+  }else{
+    // game or intersquad — charted
     const ss=document.querySelector('.tmSess[data-idx="'+idx+'"]');if(ss&&ss.value)p.matchSessId=ss.value;
     const sess=sessionById(p.matchSessId);
-    if(!sess){alert('For a game, pick the charted session it belongs to (or switch to Bullpen).');return;}
+    if(!sess){alert('For a '+env+', pick the charted session it belongs to (or switch to Bullpen).');return;}
+    sess.kind=env; // keep the session's type in step with what you chose here
     const charted=pitcherPitches(sess,p.matchPid);
     if(charted.length){for(let i=0;i<charted.length;i++){charted[i].tm=(i<p.pitches.length)?p.pitches[i]:null;}}
     sess.tmLoc=sess.tmLoc||{};if(p.locByType)sess.tmLoc[p.matchPid]=p.locByType;
-    saveOuting(p.matchPid,p.name,p.date,'game',byType,sess.id);
+    saveOuting(p.matchPid,p.name,p.date,env,byType,sess.id,p.locByType||null);
     p.applied=true;save();renderTMResults();
-    alert('Saved as a GAME outing for '+pitcherName(p.matchPid)+(charted.length?(' — attached '+Math.min(charted.length,p.pitches.length)+' pitches to charting.'):' — no charted pitches yet, metrics still saved to Trends.'));
-  }else{
-    saveOuting(p.matchPid,p.name,p.date,'bullpen',byType,null);
-    p.applied=true;save();renderTMResults();
-    alert('Saved as a BULLPEN outing for '+pitcherName(p.matchPid)+'. It feeds the Trends board.');
+    alert('Saved as a '+env.toUpperCase()+' outing for '+pitcherName(p.matchPid)+(charted.length?(' — attached '+Math.min(charted.length,p.pitches.length)+' pitches to charting.'):' — no charted pitches yet, metrics still saved to Trends.'));
   }
 };
 
@@ -1092,7 +1121,7 @@ function renderTrends(){
   if(prev&&withO.some(p=>p.id===prev))psel.value=prev;
   const pid=psel.value;
   const env=document.getElementById('trEnv').value;
-  let outs=(DB.outings||[]).filter(o=>o.pitcherId===pid&&(!env||o.env===env));
+  let outs=(DB.outings||[]).filter(o=>o.pitcherId===pid&&(!env||outEnv(o)===env));
   outs.sort((a,b)=>(a.date||'').localeCompare(b.date||'')|| (a.ts||0)-(b.ts||0));
   // types present
   const typeSet=new Set();outs.forEach(o=>Object.keys(o.byType||{}).forEach(c=>typeSet.add(c)));
@@ -1106,7 +1135,7 @@ function renderTrends(){
   const body=document.getElementById('trBody');
   if(!pid||!outs.length){body.innerHTML='<div class="card empty">No TrackMan outings for this selection yet. Upload PDFs in the TrackMan tab.</div>';return;}
   // series for chosen type+metric
-  const series=outs.map(o=>({date:o.date,env:o.env,v:o.byType&&o.byType[type]?o.byType[type][metric]:null})).filter(s=>s.v!=null);
+  const series=outs.map(o=>({date:o.date,env:outEnv(o),v:o.byType&&o.byType[type]?o.byType[type][metric]:null})).filter(s=>s.v!=null);
   const mlbl=(TR_METRICS.find(m=>m.k===metric)||{}).lbl;const munit=(TR_METRICS.find(m=>m.k===metric)||{}).u||'';
   const tlbl=(PITCH_TYPES.find(t=>t.code===type)||{}).label||type;
   let h=`<div class="card"><div class="flexb" style="margin-bottom:6px"><h3 style="margin:0">${esc(tlbl)} — ${esc(mlbl)}</h3><div class="spacer"></div><span class="muted">${series.length} outing${series.length===1?'':'s'}</span></div>`;
@@ -1114,8 +1143,8 @@ function renderTrends(){
   h+=`</div>`;
   // full table: outings x metrics for chosen type
   h+=`<div class="card"><h3>All metrics · ${esc(tlbl)}</h3><div class="tblscroll"><table><tr><th>Date</th><th>Env</th><th>#</th>${TR_METRICS.map(m=>`<th>${m.lbl}</th>`).join('')}</tr>`;
-  outs.slice().reverse().forEach(o=>{const bt=o.byType&&o.byType[type];
-    h+=`<tr><td>${fmtDate(o.date)||'—'}</td><td><span class="tag ${o.env==='game'?'ok':'tm'}">${o.env}</span></td><td>${bt?bt.n:'—'}</td>`+
+  outs.slice().reverse().forEach(o=>{const bt=o.byType&&o.byType[type];const oe=outEnv(o);
+    h+=`<tr><td>${fmtDate(o.date)||'—'}</td><td><span class="tag ${oe==='game'?'ok':(oe==='bullpen'?'tm':'warn')}">${oe}</span></td><td>${bt?bt.n:'—'}</td>`+
       TR_METRICS.map(m=>`<td class="mono">${bt&&bt[m.k]!=null?bt[m.k]+m.u:'—'}</td>`).join('')+`</tr>`;});
   h+=`</table></div><div class="hint">Bullpen pitches are typed from TrackMan velo+spin; game pitches use your charting. Spin eff is per-pitch-averaged.</div></div>`;
   body.innerHTML=h;
@@ -1138,25 +1167,41 @@ function trLineSVG(series,unit){
   // line
   let d='';series.forEach((p,i)=>{d+=(i?'L':'M')+X(i).toFixed(1)+' '+Y(p.v).toFixed(1)+' ';});
   s+=`<path d="${d}" fill="none" stroke="var(--red)" stroke-width="2.5"/>`;
+  const envColor=e=>e==='game'?'var(--red)':(e==='intersquad'?'#f0b23a':'#5ad07a');
   series.forEach((p,i)=>{const cx=X(i),cy=Y(p.v);
-    s+=`<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4" fill="${p.env==='game'?'var(--red)':'#5ad07a'}" stroke="#0d1117" stroke-width="1.5"/>`;
+    s+=`<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4" fill="${envColor(p.env)}" stroke="#0d1117" stroke-width="1.5"/>`;
     s+=`<text x="${cx.toFixed(1)}" y="${(cy-9).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--ink)">${p.v}</text>`;
     if(n<=12)s+=`<text x="${cx.toFixed(1)}" y="${(H-12).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--dim)">${(p.date||'').slice(5)}</text>`;});
   s+=`</svg>`;
-  return `<div style="overflow-x:auto">${s}</div><div class="hint" style="margin-top:2px"><span style="color:var(--red)">●</span> game &nbsp; <span style="color:#5ad07a">●</span> bullpen</div>`;
+  return `<div style="overflow-x:auto">${s}</div><div class="hint" style="margin-top:2px"><span style="color:var(--red)">●</span> game &nbsp; <span style="color:#f0b23a">●</span> intersquad &nbsp; <span style="color:#5ad07a">●</span> bullpen</div>`;
 }
 
 /* ---------------- COMMAND ---------------- */
 function gameSessIdsFor(pid){return DB.sessions.filter(s=>s.tmLoc&&s.tmLoc[pid]).map(s=>s.id);}
+// All located TrackMan pitches for a pitcher, keyed by pitch type, honoring the environment filter.
+function outingsLoc(pid,env){
+  const out={};
+  (DB.outings||[]).forEach(o=>{
+    if(o.pitcherId!==pid)return;
+    if(env&&outEnv(o)!==env)return;
+    let lb=o.loc;
+    if((!lb||!Object.keys(lb).length)&&o.sessionId){const s=sessionById(o.sessionId);if(s&&s.tmLoc)lb=s.tmLoc[pid];}
+    if(!lb)return;
+    for(const t in lb){if(lb[t]&&lb[t].length)(out[t]=out[t]||[]).push(...lb[t]);}
+  });
+  return out;
+}
 function renderCommand(){
   const psel=document.getElementById('cmPitcher');
-  const withLoc=DB.roster.filter(p=>gameSessIdsFor(p.id).length);
+  const envSel=document.getElementById('cmEnv');const env=envSel?envSel.value:'';
+  const withLoc=DB.roster.filter(p=>Object.keys(outingsLoc(p.id,env)).length);
   const prev=psel.value;
-  psel.innerHTML=withLoc.length?withLoc.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join(''):'<option value="">— no game TrackMan locations yet —</option>';
+  psel.innerHTML=withLoc.length?withLoc.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join(''):'<option value="">— no TrackMan locations yet —</option>';
   if(prev&&withLoc.some(p=>p.id===prev))psel.value=prev;
   const pid=psel.value;const body=document.getElementById('cmBody');
-  if(!pid){body.innerHTML='<div class="card empty">Attach a game TrackMan PDF to a charted session first (TrackMan tab).</div>';return;}
-  const loc=gatherTMLoc(gameSessIdsFor(pid),pid);
+  if(envSel)envSel.onchange=renderCommand;
+  if(!pid){body.innerHTML='<div class="card empty">Upload a TrackMan PDF (bullpen or game) in the TrackMan tab — its pitch locations show up here.</div>';return;}
+  const loc=outingsLoc(pid,env);
   const types=PITCH_TYPES.filter(t=>loc[t.code]&&loc[t.code].length);
   if(!types.length){body.innerHTML='<div class="card empty">No located pitches for this pitcher.</div>';return;}
   let cards='';
@@ -1172,7 +1217,7 @@ function renderCommand(){
         <svg class="cmplate" viewBox="0 0 40 16"><polygon points="4,0 36,0 36,7 20,15 4,7" fill="none" stroke="rgba(17,17,17,.55)" stroke-width="1.4"/></svg>
       </div>
       <div class="sub">${pts.length} located · <b>avg ${avg.toFixed(1)}"</b> · med ${med.toFixed(1)}"</div></div>`;});
-  body.innerHTML=`<div class="card"><h3>Miss from middle-middle <span class="tag tm">TM</span> <span class="muted" style="text-transform:none;letter-spacing:0">— catcher's view, games only</span></h3>
+  body.innerHTML=`<div class="card"><h3>Miss from middle-middle <span class="tag tm">TM</span> <span class="muted" style="text-transform:none;letter-spacing:0">— catcher's view${env?' · '+env:''}</span></h3>
     <div class="hmgrid">${cards}</div>
     <div class="hint">Target is dead center (middle-middle). The + marks the target; distance is each pitch's miss from it in inches. Home plate is drawn at the bottom (catcher's view). Rebuilt from TrackMan's location plot, so overlapping pitches merge into one point and the busiest spots are slightly under-counted. This data can't be split by count or batter hand.</div></div>`;
   paintAllHeat();
@@ -1205,6 +1250,7 @@ function mergeRemote(remote){
     else{const pids=new Set(ls.pitches.map(p=>p.id));
       (rs.pitches||[]).forEach(rp=>{if(!pids.has(rp.id)){ls.pitches.push(rp);changed=true;}});
       if(rs.tmLoc){ls.tmLoc=ls.tmLoc||{};for(const k in rs.tmLoc){if(!ls.tmLoc[k]){ls.tmLoc[k]=rs.tmLoc[k];changed=true;}}}
+      if(rs.kind&&!ls.kind){ls.kind=rs.kind;changed=true;}
     }});
   DB.outings=DB.outings||[];const omap={};DB.outings.forEach(o=>omap[o.id]=o);
   (remote.outings||[]).forEach(ro=>{const lo=omap[ro.id];if(!lo){DB.outings.push(ro);changed=true;}else if((ro.ts||0)>(lo.ts||0)){Object.assign(lo,ro);changed=true;}});
