@@ -101,18 +101,10 @@
   .hmcard .sub{font-size:11px;color:var(--dim);margin-top:6px;text-align:center}
   .pitcherlink{cursor:pointer;color:var(--red2);font-weight:700}
   .pitcherlink:hover{text-decoration:underline}
-  /* optimal aim */
-  .aimgrid{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
-  .aimcard{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px;width:190px}
-  .aimcard .t{font-size:12px;font-weight:800;margin-bottom:4px}
-  .aimcard .st{font-size:11px;color:var(--dim);margin-bottom:8px;min-height:26px}
-  .aimwrap{position:relative;width:154px;height:175px;margin:0 auto;background:#fff;border-radius:6px;overflow:hidden}
-  .aimwrap canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
-  .aimlegend{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--dim);margin-top:8px;justify-content:center}
-  .aimlegend .bar{height:8px;width:80px;border-radius:4px;background:linear-gradient(90deg,#3b78f6,#f5f5f5,#e11d3a);margin:0}
-  .aimsug-item{padding:8px 10px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--line)}
-  .aimsug-item:hover{background:var(--tile)}
-  .aimsug-item small{color:var(--dim)}
+    .cmcross{position:absolute;left:50%;top:50%;width:16px;height:16px;transform:translate(-8px,-8px);pointer-events:none}
+  .cmcross:before,.cmcross:after{content:"";position:absolute;background:rgba(17,17,17,.7)}
+  .cmcross:before{left:7px;top:0;width:2px;height:16px}.cmcross:after{top:7px;left:0;height:2px;width:16px}
+  .cmplate{position:absolute;left:50%;bottom:-2px;width:40px;height:16px;transform:translateX(-20px);pointer-events:none}
   @media(max-width:520px){ .tilegrid{grid-template-columns:repeat(3,1fr)} }
 </style>
 </head>
@@ -126,7 +118,8 @@
   <button data-v="chart" class="active">Chart</button>
   <button data-v="reports">Reports</button>
   <button data-v="leaderboard">Leaderboard</button>
-  <button data-v="aim">Optimal Aim</button>
+  <button data-v="trends">Trends</button>
+  <button data-v="command">Command</button>
   <button data-v="pitchers">Pitchers</button>
   <button data-v="trackman">TrackMan</button>
   <button data-v="data">Data</button>
@@ -223,21 +216,6 @@
   <div id="lbBody"></div>
 </section>
 
-<!-- ============ OPTIMAL AIM ============ -->
-<section class="view" id="v-aim">
-  <div class="card">
-    <h3>Optimal Aim <span class="muted" style="text-transform:none;letter-spacing:0">— run-value surface × command spread, from the 2026 D1 TrackMan season</span></h3>
-    <div class="row">
-      <div style="position:relative"><label class="fld">Pitcher (any 2026 D1 arm)</label>
-        <input type="text" id="aimSearch" placeholder="Search a pitcher — e.g. Matuschat" autocomplete="off">
-        <div id="aimSug" style="display:none;position:absolute;z-index:30;left:0;right:0;background:var(--panel2);border:1px solid var(--line);border-radius:10px;margin-top:2px;max-height:240px;overflow:auto"></div>
-      </div>
-      <div><label class="fld">Pitch type</label><select id="aimType"></select></div>
-    </div>
-    <div id="aimStatus" class="hint"></div>
-  </div>
-  <div id="aimBody"></div>
-</section>
 
 <!-- ============ PITCHERS ============ -->
 <section class="view" id="v-pitchers">
@@ -253,6 +231,31 @@
     <div id="tmStatus" class="hint"></div>
   </div>
   <div id="tmResults"></div>
+</section>
+
+<!-- ============ TRENDS ============ -->
+<section class="view" id="v-trends">
+  <div class="card">
+    <h3>Trends <span class="muted" style="text-transform:none;letter-spacing:0">— TrackMan metrics over time, per pitcher</span></h3>
+    <div class="row">
+      <div><label class="fld">Pitcher</label><select id="trPitcher"></select></div>
+      <div><label class="fld">Environment</label><select id="trEnv"><option value="">All</option><option value="game">Game</option><option value="bullpen">Bullpen</option></select></div>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <div><label class="fld">Pitch type</label><select id="trType"></select></div>
+      <div><label class="fld">Metric to plot</label><select id="trMetric"></select></div>
+    </div>
+  </div>
+  <div id="trBody"></div>
+</section>
+
+<!-- ============ COMMAND ============ -->
+<section class="view" id="v-command">
+  <div class="card">
+    <h3>Command <span class="muted" style="text-transform:none;letter-spacing:0">— miss from middle-middle, games only</span></h3>
+    <div class="row"><div><label class="fld">Pitcher</label><select id="cmPitcher"></select></div></div>
+  </div>
+  <div id="cmBody"></div>
 </section>
 
 <!-- ============ DATA ============ -->
@@ -340,9 +343,10 @@ const SUPA_DEFAULT_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmF
 const SUPA_DEFAULT_ROOM='shu-main';
 
 /* ---------------- store ---------------- */
-let DB={roster:[],sessions:[],meta:{}};
+let DB={roster:[],sessions:[],meta:{},outings:[]};
 function uid(){return Math.random().toString(36).slice(2,9)}
 function load(){try{const r=localStorage.getItem(LS_KEY);if(r)DB=JSON.parse(r);}catch(e){}
+  DB.outings=DB.outings||[];
   DB.roster=DB.roster||[];DB.sessions=DB.sessions||[];DB.meta=DB.meta||{};
   if(!DB.meta.activeSide)DB.meta.activeSide='R';}
 function saveLocal(){localStorage.setItem(LS_KEY,JSON.stringify(DB));}
@@ -391,9 +395,10 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.getElementById('v-'+b.dataset.v).classList.add('active');
   if(b.dataset.v==='reports')renderReports();
   if(b.dataset.v==='leaderboard')renderLeaderboard();
-  if(b.dataset.v==='aim')initAim();
   if(b.dataset.v==='pitchers')renderPitcherDB();
   if(b.dataset.v==='data')renderData();
+  if(b.dataset.v==='trends')renderTrends();
+  if(b.dataset.v==='command')renderCommand();
   if(b.dataset.v==='trackman')renderTMResults();
 });
 function goTo(v){document.querySelector('nav button[data-v="'+v+'"]').click();}
@@ -874,7 +879,7 @@ document.getElementById('tmFiles').onchange=async(e)=>{
   document.getElementById('tmStatus').textContent='Reading '+files.length+' file(s)…';
   for(const f of files){
     try{const res=await parsePDF(f);const parsed=parseTrackman(res.text);parsed.file=f.name;
-      parsed.locByType=res.locByType||null;
+      parsed.locByType=res.locByType||null;parsed._text=res.text;parsed.summary=parseTypeSummary(res.text);
       parsed.matchPid=parsed.name?(matchPitcher(parsed.name)||{}).id||null:null;
       parsed.matchSessId=parsed.date?(matchSession(parsed.date)||{}).id||null:null;parsed.applied=false;
       tmParsed.push(parsed);
@@ -902,10 +907,12 @@ function renderTMResults(){
           <select data-idx="${idx}" class="tmSess">${DB.sessions.map(s=>`<option value="${s.id}" ${s.id===p.matchSessId?'selected':''}>${fmtDate(s.date)} · ${esc(s.label||'')}</option>`).join('')||'<option value="">— none —</option>'}</select></div>
         <div><label class="fld">Maps to pitcher</label>
           <select data-idx="${idx}" class="tmPid"><option value="">— pick —</option>${DB.roster.map(r=>`<option value="${r.id}" ${r.id===p.matchPid?'selected':''}>${esc(r.name)}</option>`).join('')}</select></div>
+        <div><label class="fld">Environment</label>
+          <select data-idx="${idx}" class="tmEnv"><option value="game" ${p.matchSessId?'selected':''}>Game</option><option value="bullpen" ${p.matchSessId?'':'selected'}>Bullpen</option></select></div>
       </div>`;
     if(p.matchPid&&sessMatch){h+=`<div class="hint">Charted pitches for this pitcher: <b>${chartCount}</b> · TrackMan pitches: <b>${p.pitches.length}</b> ${mismatch?`<span class="tag warn">counts differ — check alignment</span>`:`<span class="tag ok">counts match</span>`}</div>`;}
     h+=`<div class="flexb" style="margin-top:10px">
-        <button class="btn red sm" onclick="applyTM(${idx})">${p.applied?'Re-attach':'Attach to charting'}</button>
+        <button class="btn red sm" onclick="saveTM(${idx})">${p.applied?'Re-save':'Save outing'}</button>
         <button class="btn ghost sm" onclick="previewTM(${idx})">Preview pitches</button>
         <button class="btn ghost sm" onclick="dropTM(${idx})">Remove</button>
       </div><div id="tmprev-${idx}"></div></div>`;
@@ -1002,139 +1009,174 @@ function seedDemo(){
   DB.sessions=[s];DB.meta={activeSessionId:s.id,activePitcherId:pid,activeSide:'R'};
 }
 
-/* ---------------- OPTIMAL AIM ---------------- */
-// League whiff% by location (7x7 catcher's view, flat=y*7+x) per pitch type, from the 2026 D1 TrackMan season.
-const LEAGUE_WHIFF={"4-Seam":[34,33,26,25,25,32,19,35,23,12,10,12,21,26,31,17,9,8,9,14,28,28,17,11,9,10,12,22,27,19,16,13,13,16,23,31,26,23,22,23,24,29,36,40,43,43,45,42,36],"Sinker":[21,39,34,35,38,52,28,29,21,18,13,19,29,37,44,19,10,8,8,19,42,22,12,11,7,7,12,35,33,17,14,11,11,13,24,37,28,21,19,18,17,25,22,33,29,41,36,29,24],"Cutter":[88,75,62,58,57,70,89,74,45,30,25,27,48,68,54,31,17,13,15,29,50,40,20,12,10,9,17,32,40,20,14,13,14,18,24,19,22,19,26,26,28,25,28,29,47,42,41,37,26],"Slider":[91,77,63,56,63,78,88,72,48,31,25,29,47,67,56,31,19,14,15,27,54,44,21,13,10,10,19,39,40,21,15,13,15,20,28,39,29,22,23,23,25,35,40,34,39,37,37,40,38],"Sweeper":[96,82,65,51,58,76,97,85,46,26,29,36,44,92,71,34,17,15,13,37,68,56,27,15,13,16,27,8,40,26,25,15,21,16,46,40,51,25,29,30,44,40,40,40,40,40,46,40,40],"Curveball":[89,77,66,62,62,75,87,56,43,30,27,28,39,69,47,25,17,14,14,17,36,30,18,11,9,9,13,36,31,13,12,8,9,17,33,39,22,26,23,16,24,32,36,36,24,38,35,24,39],"Changeup":[74,70,62,60,62,66,70,53,42,35,35,36,41,57,41,28,23,22,23,29,40,34,22,16,16,15,19,30,28,20,15,13,13,14,25,30,27,19,14,19,22,40,35,32,29,30,27,30,24],"Splitter":[95,74,72,71,71,78,86,68,54,36,34,40,44,63,62,33,34,25,29,28,45,13,22,10,16,19,18,30,43,36,29,9,15,18,19,43,22,48,14,16,32,9,43,43,43,43,15,28,43]};
-// Build a run-value-per-pitch surface (negative = good for pitcher) from the league whiff surface + zone geometry.
-function buildRV(whiff){
-  const RV=new Array(49),cx=3,cy=3;
-  for(let y=0;y<7;y++)for(let x=0;x<7;x++){
-    const i=y*7+x;
-    const inZ=(x>=1&&x<=5&&y>=1&&y<=5)?1:0;
-    const wr=Math.max(0,Math.min(1,(whiff[i]||0)/100));
-    const dx=x-cx,dy=y-cy,d2=dx*dx+dy*dy;
-    const swing=0.12+0.62*Math.exp(-d2/(2*2.2*2.2));      // swing prob: peaks over the zone
-    const csIfTake=inZ?0.86:0.05;                          // called-strike prob on a take
-    const heart=Math.exp(-d2/(2*1.3*1.3));                 // damage concentrated middle
-    const contactRV=0.075*heart-0.010*(1-inZ);            // contact run value (bad in heart)
-    const RV_WHIFF=-0.11,RV_CS=-0.065,RV_BALL=0.055;
-    RV[i]=swing*(wr*RV_WHIFF+(1-wr)*contactRV)+(1-swing)*(csIfTake*RV_CS+(1-csIfTake)*RV_BALL);
+/* ============ TRACKMAN TREND + COMMAND + ENVIRONMENT ============ */
+const TM_LABELS={Fastball:'FB',Sinker:'SI',Cutter:'CT',Slider:'SL',Sweeper:'SW',Curveball:'CB',Changeup:'CH',ChangeUp:'CH',Splitter:'SP'};
+function parseTypeSummary(text){
+  text=normalizeFeetInch(text);
+  const re=/(Fastball|Sinker|Cutter|Slider|Sweeper|Curveball|Change\s?[Uu]p|Splitter)\s+(\d+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/g;
+  const out=[],seen={};let m;
+  while((m=re.exec(text))!==null){const code=TM_LABELS[m[1].replace(/\s/g,'')];if(!code||seen[code])continue;seen[code]=1;
+    out.push({code,qty:+m[2],vavg:parseFloat(m[5]),spinavg:parseFloat(m[8])});}
+  return out;
+}
+function assignTypes(pitches,summary){
+  if(!summary||!summary.length)return pitches.map(()=>null);
+  const vs=pitches.map(p=>p.velo).filter(v=>v!=null),ss=pitches.map(p=>p.spin).filter(v=>v!=null);
+  const mean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
+  const sd=a=>{const m=mean(a);return Math.sqrt(mean(a.map(x=>(x-m)*(x-m))))||1;};
+  const vsd=sd(vs),ssd=sd(ss),pairs=[];
+  pitches.forEach((p,i)=>summary.forEach(c=>{
+    const dv=(p.velo!=null)?(p.velo-c.vavg)/vsd:0,dsp=(p.spin!=null)?(p.spin-c.spinavg)/ssd:0;
+    pairs.push([dv*dv+dsp*dsp,i,c.code]);}));
+  pairs.sort((a,b)=>a[0]-b[0]);
+  const cap={};summary.forEach(c=>cap[c.code]=c.qty);
+  const used={},res=new Array(pitches.length).fill(null);
+  for(const pr of pairs){const i=pr[1],code=pr[2];if(res[i]!=null)continue;if((used[code]||0)>=cap[code])continue;res[i]=code;used[code]=(used[code]||0)+1;}
+  pitches.forEach((p,i)=>{if(res[i]==null){let bc=null,bd=1e9;summary.forEach(c=>{const d=Math.abs((p.velo||0)-c.vavg);if(d<bd){bd=d;bc=c.code;}});res[i]=bc;}});
+  return res;
+}
+function byTypeMetrics(pitches,summary){
+  const codes=assignTypes(pitches,summary),g={};
+  pitches.forEach((p,i)=>{const c=codes[i];if(!c)return;const b=g[c]=g[c]||{n:0,velo:[],spin:[],ivb:[],hb:[],ext:[],relH:[],relSide:[],spinEff:[]};
+    b.n++;['velo','spin','ivb','hb','ext','relH','relSide','spinEff'].forEach(k=>{const v=p[k];if(v!=null&&!isNaN(v))b[k].push(v);});});
+  const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+  const rnd=(v,d)=>v==null?null:Math.round(v*Math.pow(10,d))/Math.pow(10,d);
+  const out={};
+  for(const c in g){const b=g[c];out[c]={n:b.n,veloAvg:rnd(avg(b.velo),1),veloTop:b.velo.length?rnd(Math.max.apply(null,b.velo),1):null,
+    spin:avg(b.spin)==null?null:Math.round(avg(b.spin)),ivb:rnd(avg(b.ivb),1),hb:rnd(avg(b.hb),1),
+    ext:rnd(avg(b.ext),2),relH:rnd(avg(b.relH),2),relSide:rnd(avg(b.relSide),2),spinEff:b.spinEff.length?Math.round(avg(b.spinEff)):null};}
+  return out;
+}
+function saveOuting(pid,name,date,env,byType,sessionId){
+  DB.outings=DB.outings||[];
+  const id=pid+'|'+(date||'nodate')+'|'+env;
+  const rec={id,pitcherId:pid,name:name||pitcherName(pid),date:date||null,env,byType,sessionId:sessionId||null,ts:Date.now()};
+  const i=DB.outings.findIndex(o=>o.id===id);
+  if(i>=0)DB.outings[i]=rec;else DB.outings.push(rec);
+}
+window.saveTM=function(idx){
+  const p=tmParsed[idx];
+  const es=document.querySelector('.tmEnv[data-idx="'+idx+'"]');const env=es?es.value:'game';
+  const ps=document.querySelector('.tmPid[data-idx="'+idx+'"]');if(ps&&ps.value)p.matchPid=ps.value;
+  if(!p.matchPid){alert('Pick which pitcher this is first.');return;}
+  const summary=p.summary||parseTypeSummary(p._text||'');
+  const byType=byTypeMetrics(p.pitches||[],summary);
+  if(env==='game'){
+    const ss=document.querySelector('.tmSess[data-idx="'+idx+'"]');if(ss&&ss.value)p.matchSessId=ss.value;
+    const sess=sessionById(p.matchSessId);
+    if(!sess){alert('For a game, pick the charted session it belongs to (or switch to Bullpen).');return;}
+    const charted=pitcherPitches(sess,p.matchPid);
+    if(charted.length){for(let i=0;i<charted.length;i++){charted[i].tm=(i<p.pitches.length)?p.pitches[i]:null;}}
+    sess.tmLoc=sess.tmLoc||{};if(p.locByType)sess.tmLoc[p.matchPid]=p.locByType;
+    saveOuting(p.matchPid,p.name,p.date,'game',byType,sess.id);
+    p.applied=true;save();renderTMResults();
+    alert('Saved as a GAME outing for '+pitcherName(p.matchPid)+(charted.length?(' — attached '+Math.min(charted.length,p.pitches.length)+' pitches to charting.'):' — no charted pitches yet, metrics still saved to Trends.'));
+  }else{
+    saveOuting(p.matchPid,p.name,p.date,'bullpen',byType,null);
+    p.applied=true;save();renderTMResults();
+    alert('Saved as a BULLPEN outing for '+pitcherName(p.matchPid)+'. It feeds the Trends board.');
   }
-  return RV;
+};
+
+/* ---------------- TRENDS ---------------- */
+const TR_METRICS=[{k:'veloAvg',lbl:'Avg velo',u:''},{k:'veloTop',lbl:'Top velo',u:''},{k:'spin',lbl:'Spin',u:''},
+  {k:'ivb',lbl:'IVB',u:'"'},{k:'hb',lbl:'HB',u:'"'},{k:'relH',lbl:'Rel height',u:'ft'},{k:'relSide',lbl:'Rel side',u:'ft'},
+  {k:'ext',lbl:'Extension',u:'ft'},{k:'spinEff',lbl:'Spin eff',u:'%'}];
+function pitchersWithOutings(){const s=new Set((DB.outings||[]).map(o=>o.pitcherId));return DB.roster.filter(p=>s.has(p.id));}
+function renderTrends(){
+  DB.outings=DB.outings||[];
+  const psel=document.getElementById('trPitcher');
+  const withO=pitchersWithOutings();
+  const prev=psel.value;
+  psel.innerHTML=withO.length?withO.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join(''):'<option value="">— no TrackMan outings yet —</option>';
+  if(prev&&withO.some(p=>p.id===prev))psel.value=prev;
+  const pid=psel.value;
+  const env=document.getElementById('trEnv').value;
+  let outs=(DB.outings||[]).filter(o=>o.pitcherId===pid&&(!env||o.env===env));
+  outs.sort((a,b)=>(a.date||'').localeCompare(b.date||'')|| (a.ts||0)-(b.ts||0));
+  // types present
+  const typeSet=new Set();outs.forEach(o=>Object.keys(o.byType||{}).forEach(c=>typeSet.add(c)));
+  const tsel=document.getElementById('trType');const prevT=tsel.value;
+  const typeOpts=PITCH_TYPES.filter(t=>typeSet.has(t.code));
+  tsel.innerHTML=typeOpts.map(t=>`<option value="${t.code}">${t.label}</option>`).join('')||'<option value="">—</option>';
+  if(prevT&&typeOpts.some(t=>t.code===prevT))tsel.value=prevT;
+  const msel=document.getElementById('trMetric');
+  if(!msel.dataset.built){msel.innerHTML=TR_METRICS.map(m=>`<option value="${m.k}">${m.lbl}</option>`).join('');msel.dataset.built='1';}
+  const type=tsel.value,metric=msel.value||'veloAvg';
+  const body=document.getElementById('trBody');
+  if(!pid||!outs.length){body.innerHTML='<div class="card empty">No TrackMan outings for this selection yet. Upload PDFs in the TrackMan tab.</div>';return;}
+  // series for chosen type+metric
+  const series=outs.map(o=>({date:o.date,env:o.env,v:o.byType&&o.byType[type]?o.byType[type][metric]:null})).filter(s=>s.v!=null);
+  const mlbl=(TR_METRICS.find(m=>m.k===metric)||{}).lbl;const munit=(TR_METRICS.find(m=>m.k===metric)||{}).u||'';
+  const tlbl=(PITCH_TYPES.find(t=>t.code===type)||{}).label||type;
+  let h=`<div class="card"><div class="flexb" style="margin-bottom:6px"><h3 style="margin:0">${esc(tlbl)} — ${esc(mlbl)}</h3><div class="spacer"></div><span class="muted">${series.length} outing${series.length===1?'':'s'}</span></div>`;
+  h+=trLineSVG(series,munit);
+  h+=`</div>`;
+  // full table: outings x metrics for chosen type
+  h+=`<div class="card"><h3>All metrics · ${esc(tlbl)}</h3><div class="tblscroll"><table><tr><th>Date</th><th>Env</th><th>#</th>${TR_METRICS.map(m=>`<th>${m.lbl}</th>`).join('')}</tr>`;
+  outs.slice().reverse().forEach(o=>{const bt=o.byType&&o.byType[type];
+    h+=`<tr><td>${fmtDate(o.date)||'—'}</td><td><span class="tag ${o.env==='game'?'ok':'tm'}">${o.env}</span></td><td>${bt?bt.n:'—'}</td>`+
+      TR_METRICS.map(m=>`<td class="mono">${bt&&bt[m.k]!=null?bt[m.k]+m.u:'—'}</td>`).join('')+`</tr>`;});
+  h+=`</table></div><div class="hint">Bullpen pitches are typed from TrackMan velo+spin; game pitches use your charting. Spin eff is per-pitch-averaged.</div></div>`;
+  body.innerHTML=h;
+  ['trEnv','trType','trMetric'].forEach(id=>{const e=document.getElementById(id);if(e)e.onchange=renderTrends;});
+  psel.onchange=renderTrends;
 }
-// Convolve RV with the pitcher's miss distribution (density grid = misses around a middle aim). Returns expected-RV per aim + best.
-function computeAim(missD, rv){
-  let s=0;for(const v of missD)s+=(v||0);if(s<=0)s=1;
-  const K=missD.map(v=>(v||0)/s),cx=3,cy=3,E=new Array(49).fill(0);
-  for(let ay=0;ay<7;ay++)for(let ax=0;ax<7;ax++){
-    let num=0,den=0;
-    for(let oy=-3;oy<=3;oy++)for(let ox=-3;ox<=3;ox++){
-      const ky=cy+oy,kx=cx+ox;if(kx<0||kx>6||ky<0||ky>6)continue;
-      const w=K[ky*7+kx];if(w<=0)continue;
-      const ly=ay+oy,lx=ax+ox;if(lx<0||lx>6||ly<0||ly>6)continue;
-      num+=w*rv[ly*7+lx];den+=w;
-    }
-    E[ay*7+ax]=den>0?num/den:0;
-  }
-  let bi=0,bv=Infinity;for(let i=0;i<49;i++){if(E[i]<bv){bv=E[i];bi=i;}}
-  return {E,best:{x:bi%7,y:Math.floor(bi/7),rv:bv},centerRV:E[cy*7+cx]};
+function trLineSVG(series,unit){
+  if(!series.length)return '<div class="muted">No data.</div>';
+  const W=680,H=180,padL=44,padR=16,padT=16,padB=34;
+  const vals=series.map(s=>s.v);let mn=Math.min.apply(null,vals),mx=Math.max.apply(null,vals);
+  if(mn===mx){mn-=1;mx+=1;}const pad=(mx-mn)*0.15;mn-=pad;mx+=pad;
+  const n=series.length;
+  const X=i=>padL+(n===1?(W-padL-padR)/2:i/(n-1)*(W-padL-padR));
+  const Y=v=>padT+(1-(v-mn)/(mx-mn))*(H-padT-padB);
+  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">`;
+  // grid + y labels
+  for(let g=0;g<=4;g++){const v=mn+(mx-mn)*g/4;const y=Y(v);
+    s+=`<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>`;
+    s+=`<text x="${padL-6}" y="${(y+3).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--dim)">${(Math.round(v*10)/10)}${unit}</text>`;}
+  // line
+  let d='';series.forEach((p,i)=>{d+=(i?'L':'M')+X(i).toFixed(1)+' '+Y(p.v).toFixed(1)+' ';});
+  s+=`<path d="${d}" fill="none" stroke="var(--red)" stroke-width="2.5"/>`;
+  series.forEach((p,i)=>{const cx=X(i),cy=Y(p.v);
+    s+=`<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4" fill="${p.env==='game'?'var(--red)':'#5ad07a'}" stroke="#0d1117" stroke-width="1.5"/>`;
+    s+=`<text x="${cx.toFixed(1)}" y="${(cy-9).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--ink)">${p.v}</text>`;
+    if(n<=12)s+=`<text x="${cx.toFixed(1)}" y="${(H-12).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--dim)">${(p.date||'').slice(5)}</text>`;});
+  s+=`</svg>`;
+  return `<div style="overflow-x:auto">${s}</div><div class="hint" style="margin-top:2px"><span style="color:var(--red)">●</span> game &nbsp; <span style="color:#5ad07a">●</span> bullpen</div>`;
 }
-function aimColorDiv(t){t=Math.max(-1,Math.min(1,t));const w=[245,245,245],b=[59,120,246],r=[225,29,58];const a=Math.abs(t),c=t<0?b:r;return [Math.round(w[0]*(1-a)+c[0]*a),Math.round(w[1]*(1-a)+c[1]*a),Math.round(w[2]*(1-a)+c[2]*a)];}
-function drawSurface(cv,grid,opt){
-  opt=opt||{};const W=cv.width,H=cv.height,ctx=cv.getContext('2d');ctx.clearRect(0,0,W,H);
-  let maxAbs=0,max=0;for(const v of grid){if(v==null)continue;if(Math.abs(v)>maxAbs)maxAbs=Math.abs(v);if(v>max)max=v;}
-  if(maxAbs<=0)maxAbs=1;if(max<=0)max=1;
-  const sm=document.createElement('canvas');sm.width=7;sm.height=7;const sx=sm.getContext('2d');const img=sx.createImageData(7,7);const dd=img.data;
-  for(let i=0;i<49;i++){let c;
-    if(opt.diverging){c=aimColorDiv((grid[i]||0)/maxAbs);}
-    else{const t=Math.max(0,Math.min(1,(grid[i]||0)/max));const jc=jet(t);const a=Math.min(1,t*1.25);c=[255*(1-a)+jc[0]*a,255*(1-a)+jc[1]*a,255*(1-a)+jc[2]*a];}
-    dd[i*4]=c[0];dd[i*4+1]=c[1];dd[i*4+2]=c[2];dd[i*4+3]=255;}
-  sx.putImageData(img,0,0);ctx.imageSmoothingEnabled=true;ctx.drawImage(sm,0,0,W,H);
-  const cw=W/7,ch=H/7,zx=cw*1,zy=ch*0.6,zw=cw*5,zh=ch*5.2;
-  ctx.strokeStyle='rgba(17,17,17,.8)';ctx.lineWidth=2;ctx.strokeRect(zx,zy,zw,zh);
-  ctx.strokeStyle='rgba(17,17,17,.28)';ctx.lineWidth=1;ctx.beginPath();
-  ctx.moveTo(zx+zw/3,zy);ctx.lineTo(zx+zw/3,zy+zh);ctx.moveTo(zx+2*zw/3,zy);ctx.lineTo(zx+2*zw/3,zy+zh);
-  ctx.moveTo(zx,zy+zh/3);ctx.lineTo(zx+zw,zy+zh/3);ctx.moveTo(zx,zy+2*zh/3);ctx.lineTo(zx+zw,zy+2*zh/3);ctx.stroke();
-  if(opt.mark){const mx=(opt.mark.x+0.5)*cw,my=(opt.mark.y+0.5)*ch;
-    ctx.strokeStyle='#111';ctx.lineWidth=3.5;ctx.beginPath();ctx.arc(mx,my,8,0,7);ctx.stroke();
-    ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(mx,my,8,0,7);ctx.stroke();
-    ctx.fillStyle='#111';ctx.beginPath();ctx.arc(mx,my,2,0,7);ctx.fill();}
-}
-// data
-let AIMDATA={index:null,base:{},shard:{},det:null,pitcher:null};
-async function initAim(){
-  const st=document.getElementById('aimStatus');
-  if(!AIMDATA.index){
-    st.textContent='Loading the 2026 D1 season index…';
-    try{const r=await fetch('index.json?v=6');AIMDATA.index=await r.json();
-      AIMDATA.base={};AIMDATA.index.pitchers.forEach(p=>{if(AIMDATA.base[p.shard]===undefined||p.i<AIMDATA.base[p.shard])AIMDATA.base[p.shard]=p.i;});
-      st.textContent='Search a pitcher (any 2026 D1 arm) to see where they should aim each pitch.';
-    }catch(e){st.innerHTML='<span style="color:var(--red2)">Couldn’t load the season data ('+esc(e.message)+'). This tab reads the APEX 2026 files.</span>';return;}
-  }
-  wireAimSearch();
-}
-function wireAimSearch(){
-  const inp=document.getElementById('aimSearch'),sug=document.getElementById('aimSug');
-  inp.oninput=()=>{const q=inp.value.trim().toLowerCase();if(!q){sug.style.display='none';return;}
-    const hits=AIMDATA.index.pitchers.filter(p=>p.name.toLowerCase().includes(q)).slice(0,25);
-    sug.innerHTML=hits.map((p,idx)=>`<div class="aimsug-item" data-i="${AIMDATA.index.pitchers.indexOf(p)}">${esc(p.name)} <small>${esc(p.tn||p.team)} · ${p.hand}HP</small></div>`).join('')||'<div class="aimsug-item"><small>no match</small></div>';
-    sug.style.display='block';
-    sug.querySelectorAll('[data-i]').forEach(el=>el.onclick=()=>{selectAimPitcher(AIMDATA.index.pitchers[+el.dataset.i]);sug.style.display='none';});
-  };
-  document.addEventListener('click',e=>{if(!sug.contains(e.target)&&e.target!==inp)sug.style.display='none';});
-}
-async function selectAimPitcher(p){
-  const st=document.getElementById('aimStatus');document.getElementById('aimSearch').value=p.name;
-  st.textContent='Loading '+p.name+'’s season…';
-  try{
-    if(!AIMDATA.shard[p.shard]){const r=await fetch('p'+p.shard+'.json?v=6');AIMDATA.shard[p.shard]=await r.json();}
-    AIMDATA.det=AIMDATA.shard[p.shard][p.i-AIMDATA.base[p.shard]];AIMDATA.pitcher=p;
-  }catch(e){st.innerHTML='<span style="color:var(--red2)">Couldn’t load pitcher detail: '+esc(e.message)+'</span>';return;}
-  const types=(AIMDATA.det.ars||[]).filter(a=>a.heat&&a.heat.d&&LEAGUE_WHIFF[a.pt]);
-  const sel=document.getElementById('aimType');
-  sel.innerHTML=types.map(a=>`<option value="${a.pt}">${a.pt} · ${a.usage}% used</option>`).join('');
-  sel.onchange=renderAim;
-  st.textContent='';
-  if(types.length)renderAim(); else document.getElementById('aimBody').innerHTML='<div class="card empty">No location data for this pitcher.</div>';
-}
-function renderAim(){
-  if(!AIMDATA.det)return;
-  const pt=document.getElementById('aimType').value;
-  const a=(AIMDATA.det.ars||[]).find(x=>x.pt===pt);if(!a){return;}
-  const miss=a.heat.d, whiff=LEAGUE_WHIFF[pt];
-  const rv=buildRV(whiff);
-  const res=computeAim(miss,rv);
-  const hand=(AIMDATA.pitcher&&AIMDATA.pitcher.hand)||'R';
-  const vx=res.best.x,vy=res.best.y;
-  const vlab=vy<=1?'up':vy===2?'up in the zone':vy===3?'middle height':vy===4?'down in the zone':'down';
-  const hlab=vx<=1?'off the edge (catcher’s left)':vx===2?'left third':vx===3?'middle':vx===4?'right third':'off the edge (catcher’s right)';
-  const gain=((res.centerRV-res.best.rv)*100);
-  const body=document.getElementById('aimBody');
-  body.innerHTML=`
-    <div class="card">
-      <div class="flexb" style="margin-bottom:6px"><b>${esc(AIMDATA.pitcher.name)} — ${esc(pt)}</b>
-        <span class="pill">${esc(AIMDATA.pitcher.tn||AIMDATA.pitcher.team)}</span><span class="pill">${hand}HP</span>
-        <div class="spacer"></div><span class="muted">${a.n} thrown · ${a.usage}% usage</span></div>
-      <div class="kpis" style="margin-bottom:12px">
-        ${kpi(vlab+', '+hlab,'Optimal aim','catcher’s view')}
-        ${kpi((gain>=0?'−':'+')+Math.abs(gain).toFixed(1),'Run value / 100','vs. aiming middle-middle')}
+
+/* ---------------- COMMAND ---------------- */
+function gameSessIdsFor(pid){return DB.sessions.filter(s=>s.tmLoc&&s.tmLoc[pid]).map(s=>s.id);}
+function renderCommand(){
+  const psel=document.getElementById('cmPitcher');
+  const withLoc=DB.roster.filter(p=>gameSessIdsFor(p.id).length);
+  const prev=psel.value;
+  psel.innerHTML=withLoc.length?withLoc.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join(''):'<option value="">— no game TrackMan locations yet —</option>';
+  if(prev&&withLoc.some(p=>p.id===prev))psel.value=prev;
+  const pid=psel.value;const body=document.getElementById('cmBody');
+  if(!pid){body.innerHTML='<div class="card empty">Attach a game TrackMan PDF to a charted session first (TrackMan tab).</div>';return;}
+  const loc=gatherTMLoc(gameSessIdsFor(pid),pid);
+  const types=PITCH_TYPES.filter(t=>loc[t.code]&&loc[t.code].length);
+  if(!types.length){body.innerHTML='<div class="card empty">No located pitches for this pitcher.</div>';return;}
+  let cards='';
+  types.forEach(t=>{const pts=loc[t.code];const hid='h'+(heatSeq++);HEATREG[hid]=pts;
+    const misses=pts.map(p=>{const dx=(p[0]-0.5)*48,dy=(p[1]-0.5)*48;return Math.sqrt(dx*dx+dy*dy);}).sort((a,b)=>a-b);
+    const avg=misses.reduce((a,b)=>a+b,0)/misses.length;
+    const med=misses.length%2?misses[(misses.length-1)/2]:(misses[misses.length/2-1]+misses[misses.length/2])/2;
+    cards+=`<div class="hmcard"><div class="ttl"><span style="width:11px;height:11px;border-radius:50%;background:${t.color};display:inline-block"></span>${t.label}</div>
+      <div class="heatwrap">
+        <canvas class="heatcanvas" data-hid="${hid}" width="150" height="165"></canvas>
+        <div class="szbox" style="left:29.25%;top:25%;width:41.5%;height:50%"></div>
+        <div class="cmcross"></div>
+        <svg class="cmplate" viewBox="0 0 40 16"><polygon points="4,0 36,0 36,7 20,15 4,7" fill="none" stroke="rgba(17,17,17,.55)" stroke-width="1.4"/></svg>
       </div>
-      <div class="aimgrid">
-        <div class="aimcard"><div class="t">1 · Run-value surface</div><div class="st">Where this pitch is valuable, league-wide. Blue = good (low RV), red = damage.</div>
-          <div class="aimwrap"><canvas id="aimRV" width="154" height="175"></canvas></div>
-          <div class="aimlegend"><span>good</span><span class="bar"></span><span>bad</span></div></div>
-        <div class="aimcard"><div class="t">2 · Command / miss</div><div class="st">Where <b>${esc(AIMDATA.pitcher.name.split(',')[0])}</b>’s ${esc(pt)} actually goes (all counts).</div>
-          <div class="aimwrap"><canvas id="aimMiss" width="154" height="175"></canvas></div>
-          <div class="aimlegend"><span>rare</span><span class="bar" style="background:linear-gradient(90deg,#fff,#3fb0d9,#5ad07a,#d9b73a,#e11d3a)"></span><span>often</span></div></div>
-        <div class="aimcard"><div class="t">3 · Expected RV by aim</div><div class="st">RV after his misses. The ◎ marks the target that minimizes run value — his optimal aim.</div>
-          <div class="aimwrap"><canvas id="aimE" width="154" height="175"></canvas></div>
-          <div class="aimlegend"><span>good</span><span class="bar"></span><span>bad</span></div></div>
-      </div>
-      <div class="hint">Run-value surface is the 2026 D1 league average for this pitch type (whiff-by-location from the season, plus called-strike and heart-of-zone-damage geometry). The miss distribution is this pitcher’s own 2026 locations. <b>Note:</b> the season data has no count field, so this can’t exclude 2-strike pitches — the miss cloud is all counts, assuming a middle-middle aim.</div>
-    </div>`;
-  drawSurface(document.getElementById('aimRV'),rv,{diverging:true});
-  drawSurface(document.getElementById('aimMiss'),miss,{});
-  drawSurface(document.getElementById('aimE'),res.E,{diverging:true,mark:res.best});
+      <div class="sub">${pts.length} located · <b>avg ${avg.toFixed(1)}"</b> · med ${med.toFixed(1)}"</div></div>`;});
+  body.innerHTML=`<div class="card"><h3>Miss from middle-middle <span class="tag tm">TM</span> <span class="muted" style="text-transform:none;letter-spacing:0">— catcher's view, games only</span></h3>
+    <div class="hmgrid">${cards}</div>
+    <div class="hint">Target is dead center (middle-middle). The + marks the target; distance is each pitch's miss from it in inches. Home plate is drawn at the bottom (catcher's view). Rebuilt from TrackMan's location plot, so overlapping pitches merge into one point and the busiest spots are slightly under-counted. This data can't be split by count or batter hand.</div></div>`;
+  paintAllHeat();
+  psel.onchange=renderCommand;
 }
 
 /* ---------------- CLOUD SYNC (Supabase, no login) ---------------- */
@@ -1164,6 +1206,8 @@ function mergeRemote(remote){
       (rs.pitches||[]).forEach(rp=>{if(!pids.has(rp.id)){ls.pitches.push(rp);changed=true;}});
       if(rs.tmLoc){ls.tmLoc=ls.tmLoc||{};for(const k in rs.tmLoc){if(!ls.tmLoc[k]){ls.tmLoc[k]=rs.tmLoc[k];changed=true;}}}
     }});
+  DB.outings=DB.outings||[];const omap={};DB.outings.forEach(o=>omap[o.id]=o);
+  (remote.outings||[]).forEach(ro=>{const lo=omap[ro.id];if(!lo){DB.outings.push(ro);changed=true;}else if((ro.ts||0)>(lo.ts||0)){Object.assign(lo,ro);changed=true;}});
   return changed;
 }
 let pushTimer=null,pushing=false;
