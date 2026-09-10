@@ -93,6 +93,9 @@
   /* heatmaps */
   .hmgrid{display:flex;gap:16px;flex-wrap:wrap}
   .hmcard{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;width:172px}
+  .rpgrid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:820px){ .rpgrid{grid-template-columns:1fr} }
+  .rphd{font-weight:800;font-size:13px;letter-spacing:.4px;margin:0 0 6px;color:var(--ink)}
   .hmcard .ttl{font-size:12px;font-weight:800;display:flex;align-items:center;gap:6px;margin-bottom:6px}
   .heatwrap{position:relative;width:150px;height:165px;background:#fff;border-radius:6px;overflow:hidden;margin:0 auto}
   .heatwrap canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
@@ -282,6 +285,12 @@
   </div>
 
   <div class="card">
+    <h3>TrackMan outings <span class="muted" style="text-transform:none;letter-spacing:0">— delete an uploaded bullpen/intersquad</span></h3>
+    <div id="tmOutList"></div>
+    <div class="hint">Deleting removes the outing everywhere (it syncs the delete to the cloud and every device).</div>
+  </div>
+
+  <div class="card">
     <h3>Team cloud sync <span class="muted" style="text-transform:none;letter-spacing:0">— share data across all devices, no logins</span></h3>
     <div id="syncStatus" style="font-weight:700;margin-bottom:10px">Cloud sync off (this device only)</div>
     <div id="bakedNote" class="hint" style="display:none;margin-top:0;margin-bottom:10px">This app is pre-connected to your team cloud — every device that opens it shares the same data automatically. The fields below are only needed to override that.</div>
@@ -349,7 +358,17 @@ function uid(){return Math.random().toString(36).slice(2,9)}
 function load(){try{const r=localStorage.getItem(LS_KEY);if(r)DB=JSON.parse(r);}catch(e){}
   DB.outings=DB.outings||[];
   DB.roster=DB.roster||[];DB.sessions=DB.sessions||[];DB.meta=DB.meta||{};
+  DB.tomb=DB.tomb||{outings:[],roster:[],sessions:[]};
+  DB.tomb.outings=DB.tomb.outings||[];DB.tomb.roster=DB.tomb.roster||[];DB.tomb.sessions=DB.tomb.sessions||[];
+  applyTomb();
   if(!DB.meta.activeSide)DB.meta.activeSide='R';}
+// Drop anything whose id is tombstoned (so deletes survive the union-merge sync).
+function applyTomb(){
+  const t=DB.tomb||{};const os=new Set(t.outings||[]),rs=new Set(t.roster||[]),ss=new Set(t.sessions||[]);
+  if(os.size)DB.outings=(DB.outings||[]).filter(o=>!os.has(o.id));
+  if(rs.size)DB.roster=(DB.roster||[]).filter(p=>!rs.has(p.id));
+  if(ss.size)DB.sessions=(DB.sessions||[]).filter(s=>!ss.has(s.id));
+}
 function saveLocal(){localStorage.setItem(LS_KEY,JSON.stringify(DB));}
 function save(){saveLocal();schedulePush();}
 function sessionById(id){return DB.sessions.find(s=>s.id===id)}
@@ -660,6 +679,106 @@ function refreshReportPickers(){
   el.innerHTML=items.length?items.map(it=>`<option value="${it.key}">${esc(it.label)}</option>`).join(''):'<option value="">— no outings yet —</option>';
   if(cur&&items.some(it=>it.key===cur))el.value=cur;
 }
+/* ===== helpers: display, approach-angle estimate, plots ===== */
+function ftInch(v){if(v==null||isNaN(v))return '—';const neg=v<0;v=Math.abs(v);let ft=Math.floor(v+1e-6);let inch=Math.round((v-ft)*12);if(inch===12){ft++;inch=0;}return (neg?'-':'')+ft+"'"+inch+'"';}
+// Estimated approach angles per pitch type. Portable TrackMan doesn't export measured VAA/HAA,
+// so this is a kinematic estimate from release point, velocity and average plate location.
+function estAngles(b,locPts){
+  if(!b||b.veloAvg==null||b.relH==null)return {vaa:null,haa:null};
+  if(!locPts||!locPts.length)return {vaa:null,haa:null};
+  const g=32.174,MPH=1.46667;
+  const zP=locPts.reduce((s,p)=>s+(4.5-p[1]*4),0)/locPts.length;
+  const xP=locPts.reduce((s,p)=>s+(p[0]*4-2),0)/locPts.length;
+  const z0=b.relH,x0=(b.relSide!=null?b.relSide:0);
+  const vRel=b.veloAvg*MPH;
+  const relDist=Math.max(48,60.5-(b.ext||6));
+  const t=relDist/(0.93*vRel);
+  const vzAvg=(zP-z0)/t, vzPlate=vzAvg-0.5*g*t, vyPlate=0.86*vRel;
+  const vaa=Math.atan2(vzPlate,vyPlate)*180/Math.PI;
+  const vxPlate=(xP-x0)/t;
+  const haa=Math.atan2(vxPlate,vyPlate)*180/Math.PI;
+  return {vaa:Math.round(vaa*10)/10,haa:Math.round(haa*10)/10};
+}
+// Ridgeline of per-pitch velocities, one row per pitch type, shared x-axis, with rug ticks.
+function veloRidgeSVG(byPitches){
+  const types=PITCH_TYPES.filter(t=>byPitches[t.code]&&byPitches[t.code].length);
+  if(!types.length)return '<div class="muted" style="padding:10px">No per-pitch velocities in this upload yet.</div>';
+  const all=[];types.forEach(t=>all.push(...byPitches[t.code]));
+  let mn=Math.min.apply(null,all),mx=Math.max.apply(null,all);const pad=Math.max(2,(mx-mn)*0.15);mn-=pad;mx+=pad;
+  const W=470,rowH=72,padL=64,padR=14,padB=24,padT=6;const plotW=W-padL-padR;
+  const X=v=>padL+(v-mn)/(mx-mn)*plotW;
+  const kde=(vals,x,bw)=>{let s=0;for(let i=0;i<vals.length;i++){const dx=x-vals[i];s+=Math.exp(-(dx*dx)/(2*bw*bw));}return s;};
+  const H=padT+types.length*rowH+padB;
+  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">`;
+  const bw=Math.max(0.7,(mx-mn)*0.035);
+  types.forEach((t,ri)=>{
+    const vals=byPitches[t.code];const y0=padT+ri*rowH+rowH-10;const amp=rowH-20;
+    const N=64;let maxD=0;const dd=[];
+    for(let i=0;i<=N;i++){const x=mn+(mx-mn)*i/N;const d=kde(vals,x,bw);dd.push(d);if(d>maxD)maxD=d;}
+    let path='M'+X(mn).toFixed(1)+' '+y0.toFixed(1);
+    for(let i=0;i<=N;i++){const x=mn+(mx-mn)*i/N;path+=' L'+X(x).toFixed(1)+' '+(y0-(dd[i]/maxD)*amp).toFixed(1);}
+    path+=' L'+X(mx).toFixed(1)+' '+y0.toFixed(1)+' Z';
+    s+=`<path d="${path}" fill="${t.color}" fill-opacity="0.72" stroke="${t.color}" stroke-width="1.2"/>`;
+    s+=`<line x1="${padL}" y1="${y0}" x2="${W-padR}" y2="${y0}" stroke="${t.color}" stroke-width="1"/>`;
+    vals.forEach(v=>{s+=`<line x1="${X(v).toFixed(1)}" y1="${y0+2}" x2="${X(v).toFixed(1)}" y2="${y0+7}" stroke="${t.color}" stroke-width="1.3" opacity="0.85"/>`;});
+    s+=`<text x="6" y="${(y0-amp*0.35).toFixed(1)}" font-size="11" fill="var(--ink)">${t.label}</text>`;
+  });
+  const ticks=4;for(let i=0;i<=ticks;i++){const v=mn+(mx-mn)*i/ticks;s+=`<text x="${X(v).toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="10" fill="var(--dim)">${Math.round(v)}</text>`;}
+  return s+`</svg>`;
+}
+// Break scatter: IVB (y) vs HB (x), both axes -20..20, coloured by pitch type, with legend.
+function breakScatterSVG(list){
+  const pts=list.filter(p=>p.ivb!=null&&p.hb!=null);
+  if(!pts.length)return '<div class="muted" style="padding:10px">No per-pitch movement in this upload yet.</div>';
+  const W=460,H=430,padL=40,padR=14,padT=30,padB=34;const plotW=W-padL-padR,plotH=H-padT-padB;
+  const X=hb=>padL+(hb+20)/40*plotW;const Y=ivb=>padT+(1-(ivb+20)/40)*plotH;
+  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">`;
+  for(let gg=-20;gg<=20;gg+=10){const x=X(gg),y=Y(gg);const op=gg===0?0.9:0.35;
+    s+=`<line x1="${x.toFixed(1)}" y1="${padT}" x2="${x.toFixed(1)}" y2="${H-padB}" stroke="var(--line)" stroke-width="1" opacity="${op}"/>`;
+    s+=`<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1" opacity="${op}"/>`;
+    s+=`<text x="${x.toFixed(1)}" y="${H-padB+14}" text-anchor="middle" font-size="9" fill="var(--dim)">${gg}</text>`;
+    s+=`<text x="${padL-6}" y="${(y+3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--dim)">${gg}</text>`;}
+  pts.forEach(p=>{const t=TYPE_BY_CODE[p.code]||{color:'#8b97a7'};
+    s+=`<circle cx="${X(p.hb).toFixed(1)}" cy="${Y(p.ivb).toFixed(1)}" r="4.2" fill="${t.color}" fill-opacity="0.85" stroke="#0d1117" stroke-width="0.8"/>`;});
+  const codes=[...new Set(pts.map(p=>p.code))];let lx=padL+6;
+  codes.forEach(c=>{const t=TYPE_BY_CODE[c];if(!t)return;
+    s+=`<circle cx="${lx}" cy="${padT-14}" r="4" fill="${t.color}"/><text x="${lx+8}" y="${padT-10}" font-size="10" fill="var(--ink)">${t.label}</text>`;lx+=t.label.length*6.4+26;});
+  s+=`<text x="${padL+plotW/2}" y="${H-3}" text-anchor="middle" font-size="10" fill="var(--dim)">HB" (← glove   arm →)</text>`;
+  s+=`<text x="11" y="${(padT+plotH/2).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--dim)" transform="rotate(-90 11 ${(padT+plotH/2).toFixed(1)})">IVB"</text>`;
+  return s+`</svg>`;
+}
+function perPitchByType(pitchesArr){const o={};(pitchesArr||[]).forEach(p=>{if(p.code&&p.velo!=null)(o[p.code]=o[p.code]||[]).push(p.velo);});return o;}
+function reportCardHtml(o){
+  const byType=o.byType||{},loc=o.loc||{},pitches=o.pitches||[],charting=o.charting||null;
+  const total=Object.values(byType).reduce((a,b)=>a+(b.n||0),0)||1;
+  const types=PITCH_TYPES.filter(t=>byType[t.code]);
+  const g=(v,u)=>v==null?'—':v+(u||'');
+  const ridge=veloRidgeSVG(perPitchByType(pitches));
+  const scatter=breakScatterSVG(pitches.filter(p=>p.code).map(p=>({code:p.code,ivb:p.ivb,hb:p.hb})));
+  const havePP=pitches.length>0;
+  let h=`<div class="card">
+    <div class="rpgrid">
+      <div><div class="rphd">Pitch velocity distribution</div>${ridge}</div>
+      <div><div class="rphd">Pitch breaks</div>${scatter}</div>
+    </div>${havePP?'':`<div class="hint">Velocity &amp; break plots need per-pitch detail. Re-upload this PDF once on this version to capture it (older uploads only stored per-type averages). The table below is complete either way.</div>`}</div>`;
+  const intersq=!!charting;
+  let cols=`<th>Pitch</th><th>CT</th><th>Pit%</th><th>Velo</th><th>Max</th><th>IVB</th><th>HB</th><th>VAA*</th><th>HAA*</th><th>Spin</th><th>Eff%</th><th>Zone%</th>`;
+  if(intersq)cols+=`<th>Strike%</th><th>Whiff%</th><th>CSW%</th>`;
+  cols+=`<th>VRel</th><th>HRel</th><th>Ext</th>`;
+  h+=`<div class="card"><h3>Stuff by pitch type <span class="tag tm">TM</span></h3><div class="tblscroll"><table><tr>${cols}</tr>`;
+  types.forEach(t=>{const b=byType[t.code];const pts=loc[t.code]||[];
+    const zone=pts.length?fmtPct(pct(pts.filter(inZone).length,pts.length)):'—';
+    const ang=estAngles(b,pts);
+    let row=`<tr><td><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:${t.color};margin-right:6px"></span>${t.label}</td>
+      <td>${b.n}</td><td>${fmtPct(pct(b.n,total))}</td><td>${g(b.veloAvg)}</td><td>${g(b.veloTop)}</td>
+      <td>${g(b.ivb,'"')}</td><td>${g(b.hb,'"')}</td><td>${ang.vaa==null?'—':ang.vaa+'°'}</td><td>${ang.haa==null?'—':ang.haa+'°'}</td>
+      <td>${g(b.spin)}</td><td>${b.spinEff==null?'—':b.spinEff+'%'}</td><td>${zone}</td>`;
+    if(intersq){const c=charting[t.code];row+=`<td>${c&&c.n?fmtPct(pct(c.strikes,c.n)):'—'}</td><td>${c&&c.n?fmtPct(pct(c.whiff,c.n)):'—'}</td><td>${c&&c.n?fmtPct(pct(c.csw,c.n)):'—'}</td>`;}
+    row+=`<td>${ftInch(b.relH)}</td><td>${ftInch(b.relSide)}</td><td>${ftInch(b.ext)}</td></tr>`;
+    h+=row;});
+  h+=`</table></div><div class="hint">Pit% = share of pitches. VRel/HRel = release height &amp; side, Ext = extension. Zone% from TrackMan locations.${intersq?' Strike%/Whiff%/CSW% come from your charting.':''} <b>VAA*/HAA*</b> are <b>estimated</b> from release point, velocity and average plate location — the portable TrackMan unit does not export measured approach angles, so treat them as directional, not exact.</div></div>`;
+  return h;
+}
 function renderReports(){
   refreshReportPickers();
   const body=document.getElementById('rpBody');
@@ -668,32 +787,24 @@ function renderReports(){
   if(!key){body.innerHTML='<div class="card empty">Upload a TrackMan PDF (Bullpen or Intersquad) in the TrackMan tab, or chart an intersquad in the Data tab.</div>';return;}
   let h='';
   if(key.slice(0,2)==='s:'){
-    // intersquad session — charting + its TrackMan
     const sess=sessionById(key.slice(2));
     if(!sess){body.innerHTML='<div class="card empty">Session not found.</div>';return;}
-    const pas=gatherPAs([sess.id],null);
-    const m=computeMetrics(pas,side);
-    const tmLoc=gatherTMLoc([sess.id],null);
-    h+=`<div class="card"><div class="flexb"><h3 style="margin:0">${esc(fmtDate(sess.date))} · ${esc(sess.label||'Intersquad')}</h3><span class="tag warn">Intersquad</span></div></div>`;
-    if(m.n){h+=metricsKpiHtml(m,'Charting'+(side?` — vs ${side==='R'?'RHH':'LHH'}`:'')); h+=usageTableHtml(m);}
-    else h+=`<div class="card empty">No charted pitches for this intersquad yet — TrackMan stuff still shows below.</div>`;
-    // TrackMan stuff: prefer the outing aggregate for this session, else the charted-pitch table
     const outs=(DB.outings||[]).filter(o=>o.sessionId===sess.id);
-    if(outs.length){const agg=aggTM(outs);h+=tmStuffTableHtml(agg.byType,agg.loc);if(Object.keys(agg.loc).length)h+=tmHeatmapsHtml(agg.loc);}
-    else{if(Object.keys(tmLoc).length)h+=tmHeatmapsHtml(tmLoc);if(pas.some(pa=>pa.some(p=>p.tm)))h+=tmTableHtml(m,tmLoc);}
+    const agg=aggTM(outs);
+    const pitches=[];outs.forEach(o=>(o.pitches||[]).forEach(p=>pitches.push(p)));
+    const m=computeMetrics(gatherPAs([sess.id],null),side);
+    const charting={};for(const c in (m.byType||{})){const b=m.byType[c];charting[c]={n:b.n,strikes:b.strikes,whiff:b.whiff,csw:b.csw};}
+    h+=`<div class="card"><div class="flexb"><div><h2 style="margin:0">${esc(sess.label||'Intersquad')}</h2><div class="muted">${esc(fmtDate(sess.date))} · Intersquad · ${pitches.length||m.n} pitches${side?' · vs '+(side==='R'?'RHH':'LHH'):''}</div></div><span class="tag warn">Intersquad</span></div></div>`;
+    if(!outs.length && !m.n){h+='<div class="card empty">No TrackMan or charting for this intersquad yet.</div>';}
+    else h+=reportCardHtml({byType:agg.byType,loc:agg.loc,pitches,charting});
   }else{
-    // bullpen outing — TrackMan only
     const o=(DB.outings||[]).find(x=>x.id===key.slice(2));
     if(!o){body.innerHTML='<div class="card empty">Outing not found.</div>';return;}
-    const agg=aggTM([o]);
-    h+=`<div class="card"><div class="flexb"><h3 style="margin:0">${esc(o.name||pitcherName(o.pitcherId))} · ${esc(fmtDate(o.date))||''}</h3><span class="tag tm">Bullpen</span></div>
-      <div class="hint">Bullpens are TrackMan only — no charting, so no strike%/CSW%. Stuff, movement and locations below.</div></div>`;
-    h+=tmStuffTableHtml(agg.byType,agg.loc);
-    if(Object.keys(agg.loc).length)h+=tmHeatmapsHtml(agg.loc);
-    else h+=`<div class="card empty">No pitch locations in this upload (its PDF had no location plot, or it predates location capture). Metrics above still apply.</div>`;
+    const total=Object.values(o.byType||{}).reduce((a,b)=>a+(b.n||0),0);
+    h+=`<div class="card"><div class="flexb"><div><h2 style="margin:0">${esc(o.name||pitcherName(o.pitcherId))}</h2><div class="muted">${esc(fmtDate(o.date))||''} · Bullpen · ${total} pitches</div></div><span class="tag tm">Bullpen</span></div></div>`;
+    h+=reportCardHtml({byType:o.byType||{},loc:o.loc||{},pitches:o.pitches||[]});
   }
   body.innerHTML=h;
-  body.querySelectorAll('[data-openp]').forEach(el=>el.onclick=()=>{PD.pid=el.dataset.openp;PD.sessIds=null;goTo('pitchers');});
   paintAllHeat();
 }
 function inZone(p){return p[0]>=0.2925&&p[0]<=0.7075&&p[1]>=0.25&&p[1]<=0.75;}
@@ -987,6 +1098,12 @@ function renderData(){
     `<div class="flexb" style="padding:7px 0;border-bottom:1px solid var(--line)"><span>${esc(p.name)}</span>
       <div class="spacer"></div><button class="btn ghost sm" onclick="renamePitcher('${p.id}')">Rename</button>
       <button class="btn ghost sm" style="color:#e5657a" onclick="delPitcher('${p.id}')">Remove</button></div>`).join(''):'<div class="muted">No pitchers yet.</div>';
+  const ol=document.getElementById('tmOutList');
+  if(ol){const outs=(DB.outings||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    ol.innerHTML=outs.length?outs.map(o=>{const n=Object.values(o.byType||{}).reduce((a,b)=>a+(b.n||0),0);const oe=outEnv(o);
+      return `<div class="flexb" style="padding:7px 0;border-bottom:1px solid var(--line)"><b>${esc(o.name||pitcherName(o.pitcherId))}</b> <span>${fmtDate(o.date)||'—'}</span>
+      <span class="tag ${oe==='bullpen'?'tm':'warn'}">${oe}</span><span class="pill">${n} pitches</span>
+      <div class="spacer"></div><button class="btn ghost sm" style="color:#e5657a" onclick="delOuting('${o.id}')">Delete</button></div>`;}).join(''):'<div class="muted">No TrackMan outings yet.</div>';}
 }
 document.getElementById('addSessBtn').onclick=()=>{
   const d=document.getElementById('newSessDate').value||todayISO();
@@ -998,9 +1115,10 @@ document.getElementById('newPitcherName').addEventListener('keydown',e=>{if(e.ke
 function addPitcher(){const n=document.getElementById('newPitcherName').value.trim();if(!n)return;
   DB.roster.push({id:uid(),name:n});save();document.getElementById('newPitcherName').value='';renderData();refreshPitcherPickers();}
 window.renameSess=function(id){const s=sessionById(id);const v=prompt('Session label:',s.label);if(v!=null){s.label=v;save();renderData();refreshSessionPickers();}};
-window.delSess=function(id){if(confirm('Delete this session and all its pitches?')){DB.sessions=DB.sessions.filter(s=>s.id!==id);save();renderData();refreshSessionPickers();renderChart();}};
+window.delSess=function(id){if(confirm('Delete this session and all its pitches?')){DB.tomb.sessions=[...new Set([...(DB.tomb.sessions||[]),id])];DB.sessions=DB.sessions.filter(s=>s.id!==id);save();renderData();refreshSessionPickers();renderChart();}};
 window.renamePitcher=function(id){const p=pitcherById(id);const v=prompt('Pitcher name:',p.name);if(v!=null){p.name=v;save();renderData();refreshPitcherPickers();}};
-window.delPitcher=function(id){if(confirm('Remove this pitcher? Charted pitches stay but lose their name.')){DB.roster=DB.roster.filter(p=>p.id!==id);save();renderData();refreshPitcherPickers();}};
+window.delPitcher=function(id){if(confirm('Remove this pitcher and their TrackMan outings?')){DB.tomb.roster=[...new Set([...(DB.tomb.roster||[]),id])];const delO=(DB.outings||[]).filter(o=>o.pitcherId===id).map(o=>o.id);DB.tomb.outings=[...new Set([...(DB.tomb.outings||[]),...delO])];DB.roster=DB.roster.filter(p=>p.id!==id);DB.outings=(DB.outings||[]).filter(o=>o.pitcherId!==id);save();renderData();refreshPitcherPickers();}};
+window.delOuting=function(id){if(confirm('Delete this TrackMan outing everywhere?')){DB.tomb.outings=[...new Set([...(DB.tomb.outings||[]),id])];DB.outings=(DB.outings||[]).filter(o=>o.id!==id);save();renderData();}};
 
 document.getElementById('exportBtn').onclick=()=>{
   const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
@@ -1078,10 +1196,10 @@ function byTypeMetrics(pitches,summary){
     ext:rnd(avg(b.ext),2),relH:rnd(avg(b.relH),2),relSide:rnd(avg(b.relSide),2),spinEff:b.spinEff.length?Math.round(avg(b.spinEff)):null};}
   return out;
 }
-function saveOuting(pid,name,date,env,byType,sessionId,loc){
+function saveOuting(pid,name,date,env,byType,sessionId,loc,pitches){
   DB.outings=DB.outings||[];
   const id=sessionId?(pid+'|'+sessionId):(pid+'|'+(date||'nodate')+'|'+env);
-  const rec={id,pitcherId:pid,name:name||pitcherName(pid),date:date||null,env,byType,loc:loc||null,sessionId:sessionId||null,ts:Date.now()};
+  const rec={id,pitcherId:pid,name:name||pitcherName(pid),date:date||null,env,byType,loc:loc||null,pitches:pitches||null,sessionId:sessionId||null,ts:Date.now()};
   const i=DB.outings.findIndex(o=>o.id===id);
   if(i>=0)DB.outings[i]=rec;else DB.outings.push(rec);
 }
@@ -1136,6 +1254,8 @@ window.saveTM=function(idx){
   if(!p.matchPid){alert('Pick which pitcher this is first.');return;}
   const summary=p.summary||parseTypeSummary(p._text||'');
   const byType=byTypeMetrics(p.pitches||[],summary);
+  const _codes=assignTypes(p.pitches||[],summary);
+  const perPitch=(p.pitches||[]).map((pp,i)=>({code:_codes[i],velo:pp.velo,spin:pp.spin,ivb:pp.ivb,hb:pp.hb,ext:pp.ext,relH:pp.relH,relSide:pp.relSide,spinEff:pp.spinEff}));
   if(env==='intersquad'){
     const ss=document.querySelector('.tmSess[data-idx="'+idx+'"]');if(ss&&ss.value)p.matchSessId=ss.value;
     const sess=sessionById(p.matchSessId);
@@ -1144,11 +1264,11 @@ window.saveTM=function(idx){
     const charted=pitcherPitches(sess,p.matchPid);
     if(charted.length){for(let i=0;i<charted.length;i++){charted[i].tm=(i<p.pitches.length)?p.pitches[i]:null;}}
     sess.tmLoc=sess.tmLoc||{};if(p.locByType)sess.tmLoc[p.matchPid]=p.locByType;
-    saveOuting(p.matchPid,p.name,p.date,'intersquad',byType,sess.id,p.locByType||null);
+    saveOuting(p.matchPid,p.name,p.date,'intersquad',byType,sess.id,p.locByType||null,perPitch);
     p.applied=true;save();renderTMResults();
     alert('Saved as an INTERSQUAD outing for '+pitcherName(p.matchPid)+(charted.length?(' — attached '+Math.min(charted.length,p.pitches.length)+' pitches to charting.'):' — no charted pitches yet, metrics still feed every tab.'));
   }else{
-    saveOuting(p.matchPid,p.name,p.date,'bullpen',byType,null,p.locByType||null);
+    saveOuting(p.matchPid,p.name,p.date,'bullpen',byType,null,p.locByType||null,perPitch);
     p.applied=true;save();renderTMResults();
     alert('Saved as a BULLPEN outing for '+pitcherName(p.matchPid)+'. It feeds every analysis tab (stuff, trends, command).');
   }
@@ -1286,13 +1406,18 @@ function setSyncStatus(s,msg){SYNC_STATUS=s;
   if(el){el.textContent=map[s]||s;el.style.color=s==='err'?'#e5657a':(s==='ok'?'#5ad07a':'var(--dim)');}
   const badge=document.getElementById('sessInfo');
 }
-// union-merge remote data into local so nothing is lost
+// union-merge remote data into local so nothing is lost — except tombstoned (deleted) ids.
 function mergeRemote(remote){
   if(!remote||typeof remote!=='object')return false;let changed=false;
+  // union tombstones first, then honor them
+  DB.tomb=DB.tomb||{outings:[],roster:[],sessions:[]};
+  const rt=remote.tomb||{};
+  ['outings','roster','sessions'].forEach(k=>{const before=DB.tomb[k].length;DB.tomb[k]=[...new Set([...(DB.tomb[k]||[]),...(rt[k]||[])])];if(DB.tomb[k].length!==before)changed=true;});
+  const tOut=new Set(DB.tomb.outings),tRos=new Set(DB.tomb.roster),tSes=new Set(DB.tomb.sessions);
   const rids=new Set(DB.roster.map(p=>p.id));
-  (remote.roster||[]).forEach(p=>{if(!rids.has(p.id)){DB.roster.push(p);changed=true;}});
+  (remote.roster||[]).forEach(p=>{if(!rids.has(p.id)&&!tRos.has(p.id)){DB.roster.push(p);changed=true;}});
   const smap={};DB.sessions.forEach(s=>smap[s.id]=s);
-  (remote.sessions||[]).forEach(rs=>{const ls=smap[rs.id];
+  (remote.sessions||[]).forEach(rs=>{if(tSes.has(rs.id))return;const ls=smap[rs.id];
     if(!ls){DB.sessions.push(rs);changed=true;}
     else{const pids=new Set(ls.pitches.map(p=>p.id));
       (rs.pitches||[]).forEach(rp=>{if(!pids.has(rp.id)){ls.pitches.push(rp);changed=true;}});
@@ -1300,7 +1425,8 @@ function mergeRemote(remote){
       if(rs.kind&&!ls.kind){ls.kind=rs.kind;changed=true;}
     }});
   DB.outings=DB.outings||[];const omap={};DB.outings.forEach(o=>omap[o.id]=o);
-  (remote.outings||[]).forEach(ro=>{const lo=omap[ro.id];if(!lo){DB.outings.push(ro);changed=true;}else if((ro.ts||0)>(lo.ts||0)){Object.assign(lo,ro);changed=true;}});
+  (remote.outings||[]).forEach(ro=>{if(tOut.has(ro.id))return;const lo=omap[ro.id];if(!lo){DB.outings.push(ro);changed=true;}else if((ro.ts||0)>(lo.ts||0)){Object.assign(lo,ro);changed=true;}});
+  applyTomb();
   return changed;
 }
 let pushTimer=null,pushing=false;
