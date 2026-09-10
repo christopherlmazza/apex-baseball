@@ -109,7 +109,17 @@ tr:last-child td{border-bottom:none}
 @keyframes sp{to{transform:rotate(360deg)}}
 [data-p]{display:none}[data-p].show{display:block;animation:fi .35s}
 @keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-@media(max-width:900px){.side{display:none}.kpis,.grid2{grid-template-columns:1fr}}
+.mbtn{display:none;background:var(--panel);border:1px solid var(--line2);border-radius:9px;color:var(--txt);font-size:20px;line-height:1;padding:7px 10px;cursor:pointer;align-items:center;flex:0 0 auto}
+.mclose{display:none;position:absolute;top:12px;right:12px;background:transparent;border:0;color:var(--mut);font-size:26px;line-height:1;cursor:pointer;padding:2px 6px}
+.navback{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:190;opacity:0;pointer-events:none;transition:opacity .25s}
+.navback.open{opacity:1;pointer-events:auto}
+@media(max-width:900px){
+  .side{display:block;position:fixed;left:0;top:0;height:100dvh;width:266px;max-width:84vw;z-index:200;transform:translateX(-105%);transition:transform .28s ease;background:var(--panel);box-shadow:0 0 46px rgba(0,0,0,.7)}
+  .side.open{transform:none}
+  .mbtn{display:inline-flex}
+  .mclose{display:block}
+  .kpis,.grid2{grid-template-columns:1fr}
+}
 
 .aimtop{display:flex;gap:16px;flex-wrap:wrap}
 .aimfield{flex:1;min-width:220px}
@@ -138,7 +148,9 @@ tr:last-child td{border-bottom:none}
 <div id="hmtip" style="position:fixed;z-index:100;pointer-events:none;display:none;background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:6px 10px;font-family:var(--mono);font-size:11.5px;color:var(--txt);box-shadow:0 6px 20px rgba(0,0,0,.5)"></div>
 <div id="loader"><div class="spin"></div><div class="mono mut" id="loadtxt">Loading TrackMan database…</div></div>
 <div class="app">
+  <div class="navback" id="navback"></div>
   <aside class="side">
+    <button class="mclose" id="mclose" aria-label="Close menu">&#10005;</button>
     <div class="brand"><span class="logo">△</span><div><b>APEX</b><small>Baseball intelligence</small></div></div>
     <nav class="nav" id="nav">
       <span class="lbl">Overview</span>
@@ -160,6 +172,7 @@ tr:last-child td{border-bottom:none}
   </aside>
   <main class="main">
     <div class="top">
+      <button class="mbtn" id="mbtn" aria-label="Open menu"><i class="ti ti-menu-2"></i></button>
       <div class="search"><i class="ti ti-search"></i><input id="gsearch" placeholder="Search any pitcher or school…" autocomplete="off"><div class="sugg" id="gsug" style="display:none"></div></div>
       <div class="badge"><span class="live"></span> <span id="syncBadge">loading</span></div>
     </div>
@@ -187,6 +200,7 @@ tr:last-child td{border-bottom:none}
         <div class="panel">
           <h3><i class="ti ti-bolt"></i> Explore</h3>
           <div style="display:flex;flex-direction:column;gap:9px">
+            <a class="btn" style="justify-content:flex-start;text-decoration:none" href="pitch-tracking.html"><i class="ti ti-clipboard-list"></i> SHUpitcherhub — team charting</a>
             <button class="btn ghost" style="justify-content:flex-start" data-go="pitchers"><i class="ti ti-user-bolt"></i> Browse all pitchers</button>
             <button class="btn ghost" style="justify-content:flex-start" data-go="leaders"><i class="ti ti-trophy"></i> Leaderboards</button>
             <button class="btn ghost" style="justify-content:flex-start" data-go="models"><i class="ti ti-chart-dots"></i> Stuff+ &amp; Command+ models</button>
@@ -351,6 +365,13 @@ var panels={};document.querySelectorAll('[data-p]').forEach(function(s){panels[s
 function show(id){for(var k in panels)panels[k].classList.toggle('show',k===id);
   document.querySelectorAll('#nav a').forEach(function(a){a.classList.toggle('on',a.getAttribute('data-go')===id);});window.scrollTo(0,0);}
 document.body.addEventListener('click',function(e){var t=e.target.closest('[data-go]');if(t)show(t.getAttribute('data-go'));});
+(function(){var side=document.querySelector('.side'),back=document.getElementById('navback');
+function op(){if(side)side.classList.add('open');if(back)back.classList.add('open');}
+function cl(){if(side)side.classList.remove('open');if(back)back.classList.remove('open');}
+var mb=document.getElementById('mbtn');if(mb)mb.addEventListener('click',op);
+var mc=document.getElementById('mclose');if(mc)mc.addEventListener('click',cl);
+if(back)back.addEventListener('click',cl);
+document.querySelectorAll('#nav a').forEach(function(a){a.addEventListener('click',cl);});})();
 
 fetch('index.json?v=6').then(function(r){return r.json();}).then(function(d){
   IX=d;P=d.pitchers;TEAMS=d.teams;
