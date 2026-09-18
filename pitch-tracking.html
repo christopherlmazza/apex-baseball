@@ -1447,11 +1447,15 @@ function parseTrackman(text){
   const hm=text.match(/(.+?)\s+Pitching practice\s+(\d{1,2}\s+\w+\s+\d{4})/);
   const name=hm?hm[1].trim().split('\n').pop().trim():null;
   const date=hm?parseTMDate(hm[2]):null;
-  const rowre=/#(\d+)\s+([\d.]+)\s+(\d+)\s+(\d+:\d+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(-|\d+%)/g;
+  // Each metric column may be a value OR a "-" placeholder when TrackMan missed that reading.
+  // We keep the pitch and store null for whatever is missing — no pitch is dropped for a partial row.
+  const rowre=/#(\d+)\s+([\d.]+|-)\s+(\d+|-)\s+(\d+:\d+|-)\s+(-?[\d.]+|-)\s+(-?[\d.]+|-)\s+(\S+)\s+(\S+)\s+(\S+)\s+(-|\d+%)/g;
   const pitches=[];let mm;
+  const numF=v=>(v==null||v==='-'||v==='')?null:(isNaN(parseFloat(v))?null:parseFloat(v));
+  const numI=v=>(v==null||v==='-'||v==='')?null:(isNaN(parseInt(v))?null:parseInt(v));
   while((mm=rowre.exec(text))!==null){
-    pitches.push({no:+mm[1],velo:parseFloat(mm[2]),spin:parseInt(mm[3]),tiltMin:clockToMin(mm[4]),
-      ivb:parseFloat(mm[5]),hb:parseFloat(mm[6]),ext:feetInchToFeet(mm[7]),relH:feetInchToFeet(mm[8]),
+    pitches.push({no:+mm[1],velo:numF(mm[2]),spin:numI(mm[3]),tiltMin:clockToMin(mm[4]),
+      ivb:numF(mm[5]),hb:numF(mm[6]),ext:feetInchToFeet(mm[7]),relH:feetInchToFeet(mm[8]),
       relSide:feetInchToFeet(mm[9]),spinEff:mm[10]==='-'?null:parseInt(mm[10])});}
   return {name,date,pitches};
 }
@@ -1520,7 +1524,8 @@ function renderTMResults(){
 window.previewTM=function(idx){const p=tmParsed[idx];const el=document.getElementById('tmprev-'+idx);
   if(el.innerHTML){el.innerHTML='';return;}
   let h='<div class="tblscroll" style="margin-top:10px"><table><tr><th>#</th><th>Velo</th><th>Spin</th><th>Eff</th><th>Tilt</th><th>IVB</th><th>HB</th><th>Ext</th><th>RelH</th><th>RelSide</th></tr>';
-  p.pitches.forEach(x=>{h+=`<tr><td>${x.no}</td><td>${x.velo}</td><td>${x.spin}</td><td>${x.spinEff==null?'—':x.spinEff+'%'}</td><td>${minToClock(x.tiltMin)}</td><td>${x.ivb}</td><td>${x.hb}</td><td>${x.ext}</td><td>${x.relH}</td><td>${x.relSide}</td></tr>`;});
+  const dsh=v=>(v==null||(typeof v==='number'&&isNaN(v)))?'—':v;
+  p.pitches.forEach(x=>{h+=`<tr><td>${x.no}</td><td>${dsh(x.velo)}</td><td>${dsh(x.spin)}</td><td>${x.spinEff==null?'—':x.spinEff+'%'}</td><td>${x.tiltMin==null?'—':minToClock(x.tiltMin)}</td><td>${dsh(x.ivb)}</td><td>${dsh(x.hb)}</td><td>${dsh(x.ext)}</td><td>${dsh(x.relH)}</td><td>${dsh(x.relSide)}</td></tr>`;});
   h+='</table></div>';el.innerHTML=h;};
 window.dropTM=function(idx){tmParsed.splice(idx,1);renderTMResults();};
 window.applyTM=function(idx){const p=tmParsed[idx];
