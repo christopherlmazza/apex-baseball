@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>SHUpitcherhub</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
     --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --line:#2b3444;
@@ -125,6 +126,17 @@
   .cmcross:before{left:7px;top:0;width:2px;height:16px}.cmcross:after{top:7px;left:0;height:2px;width:16px}
   .cmplate{position:absolute;left:50%;bottom:-2px;width:40px;height:16px;transform:translateX(-20px);pointer-events:none}
   @media(max-width:520px){ .tilegrid{grid-template-columns:repeat(3,1fr)} }
+  /* click feedback */
+  .tile.pop{animation:tilepop .3s ease}
+  @keyframes tilepop{0%{transform:scale(1)}35%{transform:scale(1.12);box-shadow:0 0 0 3px var(--red2)}100%{transform:scale(1)}}
+  #chCue{position:fixed;left:50%;top:58px;transform:translateX(-50%) translateY(-14px);z-index:60;background:var(--red2);color:#fff;font-weight:800;font-size:16px;padding:10px 20px;border-radius:999px;box-shadow:0 6px 22px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .12s,transform .12s;letter-spacing:.3px}
+  #chCue.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .endbanner{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:linear-gradient(90deg,#2a1414,#20293a);border:1px solid #5b2b2b;border-radius:14px;padding:13px 16px;margin-bottom:14px}
+  .endbanner b{color:var(--ink);font-size:15px}
+  .endbanner .muted{margin:0}
+  button.btn.amber{background:var(--amber);border-color:var(--amber);color:#20160a}
+  .ghostbtn{background:var(--panel2);border:1px dashed #6b7688;color:var(--ink);border-radius:10px;padding:9px 12px;font-weight:800;font-size:13px;cursor:pointer}
+  .ghostbtn:active{transform:scale(.96)}
 </style>
 </head>
 <body>
@@ -133,10 +145,12 @@
   <div class="logo" style="border-left:1px solid var(--line);padding-left:12px"><b>SHU</b>pitcherhub</div>
   <div class="sess" id="sessInfo"></div>
 </header>
+<div id="chCue"></div>
 <nav>
   <button data-v="chart" class="active">Chart</button>
   <button data-v="reports">Reports</button>
   <button data-v="leaderboard">Leaderboard</button>
+  <button data-v="log">Pitcher Log</button>
   <button data-v="trends">Trends</button>
   <button data-v="command">Command</button>
   <button data-v="pitchers">Pitchers</button>
@@ -153,6 +167,7 @@
         <label class="fld">Session</label>
         <div style="display:flex;gap:8px">
           <select id="chSession" style="flex:1"></select>
+          <button class="btn" id="chEndSess" title="End / reopen this session" style="flex:0 0 auto">End</button>
           <button class="btn red" id="chNewSess" title="Start a new session" style="flex:0 0 auto">+ New</button>
         </div>
       </div>
@@ -165,6 +180,12 @@
   </div>
 
   <div id="chLive" style="display:none">
+    <div class="endbanner" id="chEndedBanner" style="display:none">
+      <span style="font-size:20px">⛔</span>
+      <div><b>Session ended.</b><div class="muted" style="font-size:12px">Charting is locked. Reopen to add more pitches — nothing was lost.</div></div>
+      <div class="spacer"></div>
+      <button class="btn amber" id="chReopen">Reopen session</button>
+    </div>
     <div class="countbar">
       <div><div class="big" id="cBalls">0</div><div class="lbl">Balls</div></div>
       <div style="font-size:30px;color:var(--dim)">–</div>
@@ -199,14 +220,14 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card logcard">
       <h3>1 · Pitch type</h3>
       <div class="tilegrid" id="typeTiles"></div>
       <h3 style="margin-top:12px">Velocity <span class="muted" style="text-transform:none;letter-spacing:0">(optional — TrackMan fills this later)</span></h3>
       <input type="number" id="veloInput" inputmode="decimal" placeholder="e.g. 88" step="0.1">
     </div>
 
-    <div class="card">
+    <div class="card logcard">
       <h3>2 · Result <span class="muted" style="text-transform:none;letter-spacing:0">— logs the pitch &amp; advances the count</span></h3>
       <div class="stripe"></div>
       <div class="tilegrid" id="resultTiles" style="grid-template-columns:repeat(3,1fr)"></div>
@@ -214,7 +235,11 @@
         <div id="bipGroups"></div>
         <button class="btn ghost sm" id="bipCancel" style="margin-top:8px">← back</button>
       </div>
-      <h4 style="margin:12px 0 4px;font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px">Base-running / free advance</h4>
+      <div class="flexb" style="margin:12px 0 4px">
+        <h4 style="margin:0;font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px">Base-running / free advance</h4>
+        <div class="spacer"></div>
+        <button class="ghostbtn" id="ghostBtn" title="Drop a ghost runner on the next open base">👻 Add runner</button>
+      </div>
       <div class="brrow" id="brRow"></div>
       <div class="flexb" style="margin-top:10px">
         <button class="btn ghost sm" id="undoBtn">↶ Undo last</button>
@@ -251,6 +276,7 @@
       <div><label class="fld">Environment</label><select id="lbEnv"><option value="">All</option><option value="bullpen">Bullpen</option><option value="intersquad">Intersquad</option></select></div>
       <div><label class="fld">Batter hand</label><select id="lbSide"><option value="">All batters</option><option value="R">vs RHH</option><option value="L">vs LHH</option></select></div>
       <div><label class="fld">Pitch type</label><select id="lbType"></select></div>
+      <div><label class="fld">Usage for</label><select id="lbPitcher"></select></div>
     </div>
     <div class="row" style="margin-top:8px">
       <div><label class="fld">Balls</label><select id="lbBalls"><option value="">Any</option><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
@@ -262,6 +288,23 @@
   </div>
   <div id="lbUsage"></div>
   <div id="lbBody"></div>
+</section>
+
+<!-- ============ PITCHER LOG ============ -->
+<section class="view" id="v-log">
+  <div class="card">
+    <div class="flexb">
+      <div style="flex:1;min-width:180px">
+        <label class="fld">Scope</label>
+        <select id="logScope"></select>
+      </div>
+      <div style="align-self:flex-end;display:flex;gap:8px">
+        <button class="btn red" id="logDownload">⬇ Download .xlsx</button>
+      </div>
+    </div>
+    <div class="hint">Live pitcher log built from your charted sessions — every column and formula matches your template (IP, ERA, Bavg.A., WHIP, FPS%, x%, Leadoff HO%, 2x-3P%). Preview below; download for the Excel sheet with formulas baked in.</div>
+  </div>
+  <div id="logBody"></div>
 </section>
 
 
@@ -383,6 +426,8 @@ const PITCH_TYPES=[
   {code:'SP',label:'Splitter',color:'#b07de0'}
 ];
 const TYPE_BY_CODE=Object.fromEntries(PITCH_TYPES.map(t=>[t.code,t]));
+const RESULT_LABEL={CalledStrike:'Called Strike',Whiff:'Swing & Miss',Foul:'Foul',Ball:'Ball',HBP:'Hit By Pitch',InPlay:'In Play'};
+const CUE_COLOR={CalledStrike:'var(--green)',Whiff:'var(--green)',Foul:'var(--amber)',Ball:'var(--amber)',HBP:'var(--blue)',InPlay:'var(--red2)'};
 const RESULTS=[
   {code:'CalledStrike',label:'Called Strike'},
   {code:'Whiff',label:'Swing & Miss'},
@@ -574,6 +619,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.getElementById('v-'+b.dataset.v).classList.add('active');
   if(b.dataset.v==='reports')renderReports();
   if(b.dataset.v==='leaderboard')renderLeaderboard();
+  if(b.dataset.v==='log')renderLog();
   if(b.dataset.v==='pitchers')renderPitcherDB();
   if(b.dataset.v==='data')renderData();
   if(b.dataset.v==='trends')renderTrends();
@@ -585,7 +631,7 @@ function goTo(v){document.querySelector('nav button[data-v="'+v+'"]').click();}
 /* ---------------- CHART ---------------- */
 let pendingType=null;
 function refreshSessionPickers(){
-  const opts=DB.sessions.map(s=>`<option value="${s.id}">${fmtDate(s.date)} · ${esc(s.label||'Session')}</option>`).join('');
+  const opts=DB.sessions.map(s=>`<option value="${s.id}">${fmtDate(s.date)} · ${esc(s.label||'Session')}${s.ended?' · ended':''}</option>`).join('');
   const empty='<option value="">— no sessions yet —</option>';
   ['chSession'].forEach(id=>{
     const el=document.getElementById(id);const cur=el.value;
@@ -627,26 +673,39 @@ function buildTiles(){
     `<h4>${g.title}</h4><div class="bipgrid">`+g.items.map(([c,l])=>`<div class="tile" data-bip="${c}">${l}</div>`).join('')+`</div>`).join('');
   document.getElementById('brRow').innerHTML=BR_EVENTS.map(([c,l])=>`<div class="tile" data-ev="${c}">${l}</div>`).join('');
   document.querySelectorAll('#typeTiles .tile').forEach(t=>t.onclick=()=>{
-    pendingType=t.dataset.type;
+    if(sessEnded()){flash('Session ended — tap Reopen');return;}
+    pendingType=t.dataset.type;popTile(t);
     document.querySelectorAll('#typeTiles .tile').forEach(x=>x.classList.remove('sel'));
     t.classList.add('sel');
   });
   document.querySelectorAll('#resultTiles .tile').forEach(t=>t.onclick=()=>{
+    if(sessEnded()){flash('Session ended — tap Reopen');return;}
+    popTile(t);
     if(t.dataset.result==='InPlay'){ if(!pendingType){flash('Pick a pitch type first');return;} openBip(); }
     else logPitch(t.dataset.result);
   });
-  document.querySelectorAll('#bipGroups .tile').forEach(t=>t.onclick=()=>logPitch('InPlay',t.dataset.bip));
+  document.querySelectorAll('#bipGroups .tile').forEach(t=>t.onclick=()=>{popTile(t);logPitch('InPlay',t.dataset.bip);});
   document.getElementById('bipCancel').onclick=closeBip;
-  document.querySelectorAll('#brRow .tile').forEach(t=>t.onclick=()=>logEvent(t.dataset.ev));
+  document.querySelectorAll('#brRow .tile').forEach(t=>t.onclick=()=>{if(sessEnded()){flash('Session ended — tap Reopen');return;}popTile(t);logEvent(t.dataset.ev);});
+  document.getElementById('ghostBtn').onclick=()=>{
+    if(sessEnded()){flash('Session ended — tap Reopen');return;}
+    const sess=sessionById(DB.meta.activeSessionId);if(!sess){alert('Pick a session first.');return;}
+    const rep=replaySession(sess);const cur=rep.bases.map(x=>!!x);
+    const idx=cur.indexOf(false);
+    if(idx<0){flash('Bases already loaded');return;}
+    cur[idx]=true;editLastBases(sess,cur);
+    cue('👻 Ghost on '+['1st','2nd','3rd'][idx],'var(--blue)');
+  };
   // base diamond taps -> correct current runners
   document.querySelectorAll('#diamond .bs').forEach(b=>b.onclick=()=>{
     const sess=sessionById(DB.meta.activeSessionId);if(!sess)return;
+    if(sessEnded()){flash('Session ended — tap Reopen');return;}
     const rep=replaySession(sess);const cur=rep.bases.map(x=>!!x);
     const idx={'1':0,'2':1,'3':2}[b.dataset.base]; cur[idx]=!cur[idx];
     editLastBases(sess,cur);
   });
-  document.getElementById('runPlus').onclick=()=>{const s=sessionById(DB.meta.activeSessionId);if(s)editLastRuns(s,1);};
-  document.getElementById('runMinus').onclick=()=>{const s=sessionById(DB.meta.activeSessionId);if(s)editLastRuns(s,-1);};
+  document.getElementById('runPlus').onclick=()=>{if(sessEnded()){flash('Session ended — tap Reopen');return;}const s=sessionById(DB.meta.activeSessionId);if(s)editLastRuns(s,1);};
+  document.getElementById('runMinus').onclick=()=>{if(sessEnded()){flash('Session ended — tap Reopen');return;}const s=sessionById(DB.meta.activeSessionId);if(s)editLastRuns(s,-1);};
 }
 function openBip(){document.getElementById('bipPanel').style.display='block';}
 function closeBip(){document.getElementById('bipPanel').style.display='none';}
@@ -657,6 +716,7 @@ function logPitch(result,bip){
   const velo=parseFloat(document.getElementById('veloInput').value);
   sess.pitches.push({id:uid(),kind:'p',pitcherId:pid,type:pendingType,velo:isNaN(velo)?null:velo,result,bip:bip||undefined,side:DB.meta.activeSide||'R',tm:null});
   save();
+  cue(bip?(BIP_LABEL[bip]||bip):(RESULT_LABEL[result]||result), bip?'var(--red2)':(CUE_COLOR[result]||'var(--red2)'));
   document.getElementById('veloInput').value='';
   pendingType=null;closeBip();
   document.querySelectorAll('#typeTiles .tile').forEach(x=>x.classList.remove('sel'));
@@ -666,7 +726,7 @@ function logEvent(ev){
   const sess=sessionById(DB.meta.activeSessionId);const pid=DB.meta.activePitcherId;
   if(!sess||!pid){alert('Pick a session and a pitcher first.');return;}
   sess.pitches.push({id:uid(),kind:'ev',pitcherId:pid,ev});
-  save();renderChart();
+  save();cue(EV_LABEL[ev]||ev,'var(--amber)');renderChart();
 }
 // diamond correction: set absolute current bases via a trailing 'set' marker
 function editLastBases(sess,newBases){
@@ -685,11 +745,13 @@ function editLastRuns(sess,delta){
 }
 document.getElementById('undoBtn').onclick=()=>{
   const sess=sessionById(DB.meta.activeSessionId);if(!sess||!sess.pitches.length)return;
+  if(sessEnded()){flash('Session ended — tap Reopen');return;}
   sess.pitches.pop(); // remove last log entry (pitch, event, set or inn)
   save();renderChart();
 };
 document.getElementById('newBatterBtn').onclick=()=>{
   const sess=sessionById(DB.meta.activeSessionId);if(!sess)return;
+  if(sessEnded()){flash('Session ended — tap Reopen');return;}
   // force-end the current batter's PA with a generic groundout-less reset: mark as an unresolved out? Simpler: no-op if no in-progress PA
   const rep=replaySession(sess);
   if(rep.balls||rep.strikes){ // clear the in-progress count by pushing an inning-neutral PA end: use a foul-less reset via 'set' won't reset count.
@@ -699,7 +761,18 @@ document.getElementById('newBatterBtn').onclick=()=>{
 };
 document.getElementById('endInningBtn').onclick=()=>{
   const sess=sessionById(DB.meta.activeSessionId);if(!sess)return;
+  if(sessEnded()){flash('Session ended — tap Reopen');return;}
   sess.pitches.push({id:uid(),kind:'inn'}); save(); renderChart();
+};
+document.getElementById('chEndSess').onclick=()=>{
+  const sess=sessionById(DB.meta.activeSessionId);if(!sess){alert('Pick a session first.');return;}
+  if(sess.ended){ sess.ended=false; }
+  else { if(!confirm('End this session? You can reopen it anytime — nothing is deleted.'))return; sess.ended=true; }
+  save();refreshSessionPickers();renderChart();updateSessInfo();
+};
+document.getElementById('chReopen').onclick=()=>{
+  const sess=sessionById(DB.meta.activeSessionId);if(!sess)return;
+  sess.ended=false;save();refreshSessionPickers();renderChart();updateSessInfo();cue('Session reopened','var(--green)');
 };
 function renderChart(){
   const sess=sessionById(DB.meta.activeSessionId);const pid=DB.meta.activePitcherId;
@@ -709,6 +782,11 @@ function renderChart(){
   if(!DB.roster.length){hint.innerHTML='Session ready. Add your pitching staff in the <b>Data</b> tab, then come back and pick who’s on the mound.';live.style.display='none';return;}
   if(!pid){hint.textContent='Pick who’s on the mound to start charting.';live.style.display='none';return;}
   hint.textContent='';live.style.display='block';
+  const ended=!!sess.ended;
+  document.getElementById('chEndedBanner').style.display=ended?'flex':'none';
+  document.querySelectorAll('#chLive .logcard').forEach(c=>c.style.display=ended?'none':'');
+  document.getElementById('chEndSess').textContent=ended?'Reopen':'End';
+  document.getElementById('chEndSess').classList.toggle('amber',ended);
   const rep=replaySession(sess);
   document.getElementById('cBalls').textContent=rep.balls;
   document.getElementById('cStrikes').textContent=rep.strikes;
@@ -753,6 +831,16 @@ function paOutcomeLabel(pa){
 function short(r){return{CalledStrike:'CS',Whiff:'W',Foul:'F',Ball:'B',HBP:'HBP',InPlay:'IP'}[r]||r}
 function pitchLabel(p){if(p.result==='InPlay'&&p.bip)return 'IP\u00b7'+(BIP_SHORT[p.bip]||p.bip);return short(p.result);}
 function flash(msg){const el=document.getElementById('pitchCount');el.textContent=msg;el.style.color='var(--red2)';setTimeout(()=>{el.style.color='';renderChart();},1000);}
+let _cueT=null;
+function cue(msg,color){const el=document.getElementById('chCue');if(!el)return;
+  el.textContent=msg;el.style.background=color||'var(--red2)';
+  el.classList.add('show');
+  if(_cueT)clearTimeout(_cueT);
+  _cueT=setTimeout(()=>el.classList.remove('show'),900);
+}
+function popTile(t){if(!t)return;t.classList.remove('pop');void t.offsetWidth;t.classList.add('pop');
+  setTimeout(()=>t.classList.remove('pop'),320);}
+function sessEnded(){const s=sessionById(DB.meta.activeSessionId);return !!(s&&s.ended);}
 
 /* ---------------- METRICS ---------------- */
 function isStrike(r){return r!=='Ball'&&r!=='HBP';}
@@ -1104,17 +1192,22 @@ function chartStatsFromPitches(list){
 function renderLeaderboard(){
   const envEl=document.getElementById('lbEnv'),tyEl=document.getElementById('lbType'),sdEl=document.getElementById('lbSide');
   const curT=tyEl.value;tyEl.innerHTML='<option value="">All pitches</option>'+PITCH_TYPES.map(t=>`<option value="${t.code}">${t.label}</option>`).join('');if(curT)tyEl.value=curT;
-  ['lbEnv','lbType','lbSide','lbBalls','lbStrikes','lbOuts','lbRun'].forEach(id=>{const e=document.getElementById(id);if(e)e.onchange=renderLeaderboard;});
+  const puEl=document.getElementById('lbPitcher');
+  if(puEl){const curP=puEl.value;puEl.innerHTML='<option value="">All (staff)</option>'+DB.roster.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');if(curP&&pitcherById(curP))puEl.value=curP;}
+  ['lbEnv','lbType','lbSide','lbBalls','lbStrikes','lbOuts','lbRun','lbPitcher'].forEach(id=>{const e=document.getElementById(id);if(e)e.onchange=renderLeaderboard;});
   const env=envEl.value,side=sdEl.value,typeF=tyEl.value;
+  const usagePid=puEl?puEl.value:'';
   const gf=lbGameFilter();
-  // ---- usage-by-pitch-type across the whole staff, respecting the game filter ----
+  // ---- usage-by-pitch-type: whole staff or a single pitcher, respecting the game filter ----
   let allCharted=[];
-  DB.roster.forEach(p=>{allCharted=allCharted.concat(chartedPitchesFor(p.id,side,gf.pred,null));});
+  const usageRoster=usagePid?DB.roster.filter(p=>p.id===usagePid):DB.roster;
+  usageRoster.forEach(p=>{allCharted=allCharted.concat(chartedPitchesFor(p.id,side,gf.pred,null));});
   const usageEl=document.getElementById('lbUsage');
   if(env!=='bullpen' && allCharted.length){
     const byT={};allCharted.forEach(a=>{byT[a.type]=(byT[a.type]||0)+1;});
     const total=allCharted.length;
-    let uh=`<div class="card"><div class="flexb"><h3 style="margin:0">Pitch usage${gf.active?' — filtered':''}</h3><div class="spacer"></div><span class="muted">${total} charted pitches${side?' vs '+(side==='R'?'RHH':'LHH'):''}</span></div>
+    const who=usagePid?esc(pitcherName(usagePid)):'Staff';
+    let uh=`<div class="card"><div class="flexb"><h3 style="margin:0">Pitch usage · ${who}${gf.active?' — filtered':''}</h3><div class="spacer"></div><span class="muted">${total} charted pitches${side?' vs '+(side==='R'?'RHH':'LHH'):''}</span></div>
       <div class="tblscroll"><table><tr><th>Pitch</th><th>#</th><th>Usage%</th></tr>`;
     PITCH_TYPES.forEach(t=>{const n=byT[t.code]||0;if(!n)return;
       uh+=`<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${t.color};margin-right:6px"></span>${t.label}</td><td>${n}</td>
@@ -1166,6 +1259,85 @@ function renderLeaderboard(){
   body.querySelectorAll('.lbh').forEach(th=>th.onclick=()=>{const k=th.dataset.k;
     if(LB.col===k)LB.dir*=-1;else{LB.col=k;LB.dir=(k==='name')?1:-1;}renderLeaderboard();});
   body.querySelectorAll('[data-openp]').forEach(el=>el.onclick=()=>{PD.pid=el.dataset.openp;PD.sessIds=null;goTo('pitchers');});
+}
+
+/* ---------------- PITCHER LOG ---------------- */
+// Aggregate charted per-pitcher counting stats across sessions -> one row per pitcher.
+function pitcherLogRows(sessions, roster){
+  const agg={};
+  const K=['tp','strikes','ball','bf','ab','h','bb','hbp','k','fps','outs','r','er','lhOut','twoK3'];
+  (sessions||[]).forEach(s=>{const rep=replaySession(s);
+    for(const pid in rep.stat){agg[pid]=agg[pid]||{};K.forEach(k=>agg[pid][k]=(agg[pid][k]||0)+rep.stat[pid][k]);}});
+  const rows=[];
+  (roster||[]).forEach(p=>{const a=agg[p.id];if(!a||!a.bf)return;
+    rows.push({name:p.name, ip:Math.round(a.outs/3*1000)/1000, er:a.er, r:a.r, h:a.h, ab:a.ab, bb:a.bb, hbp:a.hbp,
+      k:a.k, bf:a.bf, fps:a.fps, tp:a.tp, s:a.strikes, lhOut:a.lhOut, twoK3:a.twoK3});});
+  return rows;
+}
+const LOG_HEADS=['','IP','E.R.A','Bavg.A.','WHIP','Hits',"AB's",'Runs','ER','BB','HBP','K','BF','FPS','FPS%','TP','S','x%','LH Out','Leadoff HO %','2x - 3P','2x -3P %'];
+function logScopeSessions(){
+  const v=document.getElementById('logScope').value;
+  if(v&&v!=='all'){const s=sessionById(v);return s?[s]:[];}
+  return DB.sessions;
+}
+function renderLog(){
+  const sc=document.getElementById('logScope');
+  const cur=sc.value;
+  sc.innerHTML='<option value="all">All sessions</option>'+DB.sessions.map(s=>`<option value="${s.id}">${fmtDate(s.date)} · ${esc(s.label||'Session')}${s.ended?' · ended':''}</option>`).join('');
+  if(cur&&(cur==='all'||sessionById(cur)))sc.value=cur; else sc.value='all';
+  sc.onchange=renderLog;
+  document.getElementById('logDownload').onclick=downloadPitcherLog;
+  const rows=pitcherLogRows(logScopeSessions(),DB.roster);
+  const body=document.getElementById('logBody');
+  if(!rows.length){body.innerHTML='<div class="card empty">No charted plate appearances yet for this scope.</div>';return;}
+  const p1=(n,d)=>d?Math.round(1000*n/d)/10+'%':'—';
+  const f2=(n,d)=>d?(Math.round(100*n/d)/100).toFixed(2):'—';
+  let h='<div class="card"><div class="tblscroll"><table><tr>';
+  LOG_HEADS.forEach((c,i)=>{h+=`<th${i===0?'':''}>${c||'Pitcher'}</th>`;});
+  h+='</tr>';
+  rows.forEach(d=>{
+    const era=d.ip?((d.er/d.ip)*9):null;
+    const whip=d.ip?((d.h+d.bb)/d.ip):null;
+    h+='<tr>'+
+      `<td>${esc(d.name)}</td>`+
+      `<td>${d.ip.toFixed(1)}</td>`+
+      `<td>${era==null?'—':era.toFixed(2)}</td>`+
+      `<td>${f2(d.h,d.ab)}</td>`+
+      `<td>${whip==null?'—':whip.toFixed(2)}</td>`+
+      `<td>${d.h}</td><td>${d.ab}</td><td>${d.r}</td><td>${d.er}</td>`+
+      `<td>${d.bb}</td><td>${d.hbp}</td><td>${d.k}</td><td>${d.bf}</td>`+
+      `<td>${d.fps}</td><td>${p1(d.fps,d.bf)}</td>`+
+      `<td>${d.tp}</td><td>${d.s}</td><td>${p1(d.s,d.tp)}</td>`+
+      `<td>${d.lhOut}</td><td>${d.ip?Math.round(1000*d.lhOut/d.ip)/10+'%':'—'}</td>`+
+      `<td>${d.twoK3}</td><td>${p1(d.twoK3,d.bf)}</td>`+
+    '</tr>';
+  });
+  h+='</table></div><div class="hint">'+rows.length+' pitcher(s). x = strike; LH Out = leadoff hitters retired; 2x-3P = two strikes within the first 3 pitches. Download for the Excel sheet with live formulas.</div></div>';
+  body.innerHTML=h;
+}
+function downloadPitcherLog(){
+  const rows=pitcherLogRows(logScopeSessions(),DB.roster);
+  if(!rows.length){alert('No charted data to export for this scope.');return;}
+  if(typeof XLSX==='undefined'){alert('Spreadsheet library still loading — try again in a second.');return;}
+  const aoa=[LOG_HEADS.slice()];
+  rows.forEach(d=>aoa.push([d.name,Math.round(d.ip*1000)/1000,null,null,null,d.h,d.ab,d.r,d.er,d.bb,d.hbp,d.k,d.bf,d.fps,null,d.tp,d.s,null,d.lhOut,null,d.twoK3,null]));
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  for(let i=0;i<rows.length;i++){const r=i+2;const d=rows[i];
+    const div=(n,dn)=>dn?n/dn:0;
+    const set=(col,f,z,v)=>{const ref=col+r;ws[ref]={t:'n',f:f,v:v};if(z)ws[ref].z=z;};
+    set('C',`(I${r}/B${r})*9`,'0.00', div(d.er,d.ip)*9);   // ERA
+    set('D',`(F${r}/G${r})`,'0.000', div(d.h,d.ab));       // Bavg
+    set('E',`(F${r}+J${r})/B${r}`,'0.00', div(d.h+d.bb,d.ip)); // WHIP
+    set('O',`(N${r}/M${r})`,'0.0%', div(d.fps,d.bf));      // FPS%
+    set('R',`(Q${r}/P${r})`,'0.0%', div(d.s,d.tp));        // x%
+    set('T',`(S${r}/B${r})`,'0.0%', div(d.lhOut,d.ip));    // Leadoff HO%
+    set('V',`(U${r}/M${r})`,'0.0%', div(d.twoK3,d.bf));    // 2x-3P%
+  }
+  ws['!cols']=[{wch:14}].concat(Array(LOG_HEADS.length-1).fill({wch:8}));
+  ws['!freeze']={xSplit:1,ySplit:1};
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Pitcher Log');
+  XLSX.writeFile(wb,'pitcher log.xlsx');
 }
 
 /* ---------------- PITCHER DATABASE ---------------- */
