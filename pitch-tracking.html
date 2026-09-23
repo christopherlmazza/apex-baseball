@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>SHUpitcherhub</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <style>
   :root{
     --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --line:#2b3444;
@@ -1084,6 +1084,8 @@ function reportCardHtml(o){
     row+=`<td>${ftInch(b.relH)}</td><td>${ftInch(b.relSide)}</td><td>${ftInch(b.ext)}</td></tr>`;
     h+=row;});
   h+=`</table></div><div class="hint">Pit% = share of pitches. VRel/HRel = release height &amp; side, Ext = extension. Zone% from TrackMan locations.${intersq?' Strike%/Whiff%/CSW% come from your charting.':''} <b>VAA*/HAA*</b> are <b>estimated</b> from release point, velocity and average plate location — the portable TrackMan unit does not export measured approach angles, so treat them as directional, not exact.</div></div>`;
+  // Pitch-location plot (catcher's view heatmaps), same as the Pitchers/Command tabs.
+  if(Object.keys(loc).some(k=>loc[k]&&loc[k].length))h+=tmHeatmapsHtml(loc);
   return h;
 }
 function renderReports(){
@@ -1275,6 +1277,7 @@ function pitcherLogRows(sessions, roster){
   return rows;
 }
 const LOG_HEADS=['','IP','E.R.A','Bavg.A.','WHIP','Hits',"AB's",'Runs','ER','BB','HBP','K','BF','FPS','FPS%','TP','S','x%','LH Out','Leadoff HO %','2x - 3P','2x -3P %'];
+const PL_TMPL_B64="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";
 function logScopeSessions(){
   const v=document.getElementById('logScope').value;
   if(v&&v!=='all'){const s=sessionById(v);return s?[s]:[];}
@@ -1290,7 +1293,7 @@ function renderLog(){
   const rows=pitcherLogRows(logScopeSessions(),DB.roster);
   const body=document.getElementById('logBody');
   if(!rows.length){body.innerHTML='<div class="card empty">No charted plate appearances yet for this scope.</div>';return;}
-  const p1=(n,d)=>d?Math.round(1000*n/d)/10+'%':'—';
+  const p1=(n,d)=>d?Math.round(10000*n/d)/100+'%':'—';
   const f2=(n,d)=>d?(Math.round(100*n/d)/100).toFixed(2):'—';
   let h='<div class="card"><div class="tblscroll"><table><tr>';
   LOG_HEADS.forEach((c,i)=>{h+=`<th${i===0?'':''}>${c||'Pitcher'}</th>`;});
@@ -1308,36 +1311,44 @@ function renderLog(){
       `<td>${d.bb}</td><td>${d.hbp}</td><td>${d.k}</td><td>${d.bf}</td>`+
       `<td>${d.fps}</td><td>${p1(d.fps,d.bf)}</td>`+
       `<td>${d.tp}</td><td>${d.s}</td><td>${p1(d.s,d.tp)}</td>`+
-      `<td>${d.lhOut}</td><td>${d.ip?Math.round(1000*d.lhOut/d.ip)/10+'%':'—'}</td>`+
+      `<td>${d.lhOut}</td><td>${d.ip?Math.round(10000*d.lhOut/d.ip)/100+'%':'—'}</td>`+
       `<td>${d.twoK3}</td><td>${p1(d.twoK3,d.bf)}</td>`+
     '</tr>';
   });
   h+='</table></div><div class="hint">'+rows.length+' pitcher(s). x = strike; LH Out = leadoff hitters retired; 2x-3P = two strikes within the first 3 pitches. Download for the Excel sheet with live formulas.</div></div>';
   body.innerHTML=h;
 }
-function downloadPitcherLog(){
+// Build the download by filling the embedded "Fall Pitcher Stats" template (exact carbon copy:
+// same sheet name, header styling, formulas, number formats, fonts, borders & column widths).
+// Per-pitcher red/yellow highlights are the coach's manual annotations, left blank to fill in.
+async function downloadPitcherLog(){
   const rows=pitcherLogRows(logScopeSessions(),DB.roster);
   if(!rows.length){alert('No charted data to export for this scope.');return;}
-  if(typeof XLSX==='undefined'){alert('Spreadsheet library still loading — try again in a second.');return;}
-  const aoa=[LOG_HEADS.slice()];
-  rows.forEach(d=>aoa.push([d.name,Math.round(d.ip*1000)/1000,null,null,null,d.h,d.ab,d.r,d.er,d.bb,d.hbp,d.k,d.bf,d.fps,null,d.tp,d.s,null,d.lhOut,null,d.twoK3,null]));
-  const ws=XLSX.utils.aoa_to_sheet(aoa);
-  for(let i=0;i<rows.length;i++){const r=i+2;const d=rows[i];
-    const div=(n,dn)=>dn?n/dn:0;
-    const set=(col,f,z,v)=>{const ref=col+r;ws[ref]={t:'n',f:f,v:v};if(z)ws[ref].z=z;};
-    set('C',`(I${r}/B${r})*9`,'0.00', div(d.er,d.ip)*9);   // ERA
-    set('D',`(F${r}/G${r})`,'0.000', div(d.h,d.ab));       // Bavg
-    set('E',`(F${r}+J${r})/B${r}`,'0.00', div(d.h+d.bb,d.ip)); // WHIP
-    set('O',`(N${r}/M${r})`,'0.0%', div(d.fps,d.bf));      // FPS%
-    set('R',`(Q${r}/P${r})`,'0.0%', div(d.s,d.tp));        // x%
-    set('T',`(S${r}/B${r})`,'0.0%', div(d.lhOut,d.ip));    // Leadoff HO%
-    set('V',`(U${r}/M${r})`,'0.0%', div(d.twoK3,d.bf));    // 2x-3P%
-  }
-  ws['!cols']=[{wch:14}].concat(Array(LOG_HEADS.length-1).fill({wch:8}));
-  ws['!freeze']={xSplit:1,ySplit:1};
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Pitcher Log');
-  XLSX.writeFile(wb,'pitcher log.xlsx');
+  if(typeof ExcelJS==='undefined'){alert('Spreadsheet library still loading — try again in a second.');return;}
+  // decode embedded template
+  const bin=atob(PL_TMPL_B64);const u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
+  const wb=new ExcelJS.Workbook();
+  await wb.xlsx.load(u8.buffer);
+  const ws=wb.worksheets[0];
+  const N=rows.length;
+  if(N>1)ws.duplicateRow(2,N-1,true); // clone the styled prototype row for each extra pitcher
+  rows.forEach((d,i)=>{const r=2+i;const R=ws.getRow(r);
+    R.getCell(1).value=d.name;
+    R.getCell(2).value=Math.round(d.ip*1000)/1000;
+    R.getCell(3).value={formula:`(I${r}/B${r})*9`};
+    R.getCell(4).value={formula:`(F${r}/G${r})`};
+    R.getCell(5).value={formula:`(F${r}+J${r})/B${r}`};
+    R.getCell(6).value=d.h; R.getCell(7).value=d.ab; R.getCell(8).value=d.r; R.getCell(9).value=d.er;
+    R.getCell(10).value=d.bb; R.getCell(11).value=d.hbp; R.getCell(12).value=d.k; R.getCell(13).value=d.bf;
+    R.getCell(14).value=d.fps; R.getCell(15).value={formula:`(N${r}/M${r})`};
+    R.getCell(16).value=d.tp; R.getCell(17).value=d.s; R.getCell(18).value={formula:`(Q${r}/P${r})`};
+    R.getCell(19).value=d.lhOut; R.getCell(20).value={formula:`(S${r}/B${r})`};
+    R.getCell(21).value=d.twoK3; R.getCell(22).value={formula:`(U${r}/M${r})`};
+  });
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='Pitcher Logs.xlsx';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
 
 /* ---------------- PITCHER DATABASE ---------------- */
@@ -1415,27 +1426,48 @@ async function extractLocDots(page){
   const names={};for(const k in OPS)names[OPS[k]]=k;
   const mul=(m,n)=>[m[0]*n[0]+m[2]*n[1],m[1]*n[0]+m[3]*n[1],m[0]*n[2]+m[2]*n[3],m[1]*n[2]+m[3]*n[3],m[0]*n[4]+m[2]*n[5]+m[4],m[1]*n[4]+m[3]*n[5]+m[5]];
   const app=(m,x,y)=>[m[0]*x+m[2]*y+m[4],m[1]*x+m[3]*y+m[5]];
-  const TYPES={FB:[147,4,18],CT:[72,47,0],CH:[110,162,0],SL:[223,182,0],SW:[52,190,158],CB:[63,176,217],SP:[176,125,224]};
-  const mt=rgb=>{for(const k in TYPES){const t=TYPES[k];if(Math.abs(rgb[0]-t[0])<12&&Math.abs(rgb[1]-t[1])<12&&Math.abs(rgb[2]-t[2])<12)return k;}return null;};
-  let ctm=[1,0,0,1,0,0],stack=[],fill=[0,0,0],last=null;const dots=[];
+  // 1) Collect EVERY filled dot with its base fill color + page-userspace position.
+  let ctm=[1,0,0,1,0,0],stack=[],fill=[0,0,0],last=null,lastsz=null;const fills=[];
   for(let i=0;i<ops.fnArray.length;i++){
     const nm=names[ops.fnArray[i]],a=ops.argsArray[i];
     if(nm==='save')stack.push(ctm.slice());
     else if(nm==='restore')ctm=stack.pop()||[1,0,0,1,0,0];
     else if(nm==='transform')ctm=mul(ctm,a);
     else if(nm==='setFillRGBColor')fill=[a[0],a[1],a[2]];
-    else if(nm==='constructPath'){const bb=a[2];if(bb)last=app(ctm,(bb[0]+bb[1])/2,(bb[2]+bb[3])/2);}
-    else if(nm==='fill'&&last){const t=mt(fill);if(t)dots.push([t,last[0],last[1]]);}
+    else if(nm==='constructPath'){const bb=a[2];if(bb){last=app(ctm,(bb[0]+bb[1])/2,(bb[2]+bb[3])/2);
+      const sx=Math.hypot(ctm[0],ctm[1]),sy=Math.hypot(ctm[2],ctm[3]);lastsz=[(bb[1]-bb[0])*sx,(bb[3]-bb[2])*sy];}}
+    // keep only dot-sized fills; skip big multi-subpath frame/axis/bar paths that alias into the plot
+    else if(nm==='fill'&&last){if(lastsz&&lastsz[0]<14&&lastsz[1]<14)fills.push({rgb:fill.slice(),x:last[0],y:last[1]});}
   }
-  // Location plot region (page userspace, y-up): x 600-792, y 400-560
-  let loc=dots.filter(d=>d[1]>600&&d[1]<792&&d[2]>400&&d[2]<560);
-  const uniq=[];for(const d of loc){if(!uniq.some(u=>u[0]===d[0]&&Math.abs(u[1]-d[1])<3.5&&Math.abs(u[2]-d[2])<3.5))uniq.push(d);}
+  // 2) Text items (page userspace, y-up) for the legend + the "Location" plot title.
+  let items=[];try{const tc=await page.getTextContent();items=tc.items.map(it=>({s:(it.str||'').trim(),x:it.transform[4],y:it.transform[5]}));}catch(e){}
+  // 3) Build the color->type map from THIS report's own legend swatches (name text with a
+  //    colored dot immediately to its left). This auto-covers sinkers and any palette drift.
+  const NAME2CODE=[['fastball','FB'],['four-seam','FB'],['sinker','SI'],['two-seam','SI'],['cutter','CT'],['slider','SL'],['sweeper','SW'],['curveball','CB'],['changeup','CH'],['change up','CH'],['splitter','SP']];
+  const isGray=c=>Math.abs(c[0]-c[1])<14&&Math.abs(c[1]-c[2])<14; // gray/black/white swatch-less
+  const legend={};
+  items.forEach(it=>{const lc=it.s.toLowerCase();const hit=NAME2CODE.find(nc=>lc===nc[0]||lc.startsWith(nc[0]+' ')||lc===nc[0]+'s');
+    if(!hit)return;const code=hit[1];if(legend[code])return;
+    let best=null,bd=1e9;fills.forEach(f=>{if(isGray(f.rgb))return;const dx=it.x-f.x,dy=Math.abs(it.y-f.y);
+      if(dx>2&&dx<42&&dy<6&&dx<bd){bd=dx;best=f.rgb;}});
+    if(best)legend[code]=best;});
+  // Fallback palette (TrackMan portable-report colors) for any type the legend didn't yield.
+  const PAL={FB:[147,4,18],SI:[224,108,22],CT:[72,47,0],SL:[223,182,0],SW:[52,190,158],CB:[63,176,217],CH:[110,162,0],SP:[176,125,224]};
+  const REF=[];for(const c in legend)REF.push([c,legend[c]]);for(const c in PAL)if(!legend[c])REF.push([c,PAL[c]]);
+  const matchCode=rgb=>{let bc=null,bd=1e9;for(const kv of REF){const t=kv[1];const d=Math.abs(rgb[0]-t[0])+Math.abs(rgb[1]-t[1])+Math.abs(rgb[2]-t[2]);if(d<bd){bd=d;bc=kv[0];}}return bd<=60?bc:null;};
+  // 4) Location-plot region, anchored to the "Location" title so it tracks the layout and
+  //    captures arm-side dots the old fixed box (x>600) clipped. Falls back to the fixed box.
+  const loct=items.find(it=>it.s==='Location');
+  const reg=loct?{x0:loct.x+30,x1:792,y0:loct.y-165,y1:loct.y-6}:{x0:585,x1:792,y0:395,y1:560};
+  let loc=fills.filter(f=>f.x>reg.x0&&f.x<reg.x1&&f.y>reg.y0&&f.y<reg.y1)
+    .map(f=>({code:matchCode(f.rgb),x:f.x,y:f.y})).filter(f=>f.code);
+  const uniq=[];for(const d of loc){if(!uniq.some(u=>u.code===d.code&&Math.abs(u.x-d.x)<3.5&&Math.abs(u.y-d.y)<3.5))uniq.push(d);}
   // normalized position within plot frame x[-2,2]ft, y[0.5,4.5]ft (ny 0=top)
   const norm=(x,y)=>{const xf=(x-651)/42,yf=4+(y-538)*0.02410;
     let nx=(xf+2)/4, ny=(4.5-yf)/4;
     nx=Math.max(0,Math.min(1,nx));ny=Math.max(0,Math.min(1,ny));
     return [Math.round(nx*1000)/1000,Math.round(ny*1000)/1000];};
-  const out={};uniq.forEach(u=>{(out[u[0]]=out[u[0]]||[]).push(norm(u[1],u[2]));});
+  const out={};uniq.forEach(u=>{(out[u.code]=out[u.code]||[]).push(norm(u.x,u.y));});
   return out;
 }
 function normalizeFeetInch(s){return s.replace(/[’]/g,"'").replace(/[”]/g,'"').replace(/(\d)\s+"/g,'$1"').replace(/(\d)\s+'/g,"$1'");}
