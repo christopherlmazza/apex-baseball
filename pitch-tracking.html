@@ -471,8 +471,20 @@ function applyTomb(){
   if(rs.size)DB.roster=(DB.roster||[]).filter(p=>!rs.has(p.id));
   if(ss.size)DB.sessions=(DB.sessions||[]).filter(s=>!ss.has(s.id));
 }
-function saveLocal(){localStorage.setItem(LS_KEY,JSON.stringify(DB));}
-function save(){saveLocal();schedulePush();}
+// Round long decimals (pitch locations / metrics) so the saved data is ~40% smaller; browsers cap localStorage at ~5 MB.
+function _slim(k,v){return (typeof v==='number'&&!Number.isInteger(v))?Math.round(v*1000)/1000:v;}
+let LS_OK=true;
+function saveLocal(){
+  try{localStorage.setItem(LS_KEY,JSON.stringify(DB,_slim));LS_OK=true;return true;}
+  catch(e){LS_OK=false;return false;}
+}
+function storageKB(){try{return Math.round((localStorage.getItem(LS_KEY)||'').length/1024);}catch(e){return 0;}}
+// Never lets a full browser store abort the caller silently: warns loudly, keeps data in memory and pushes it to the cloud.
+function save(){
+  const ok=saveLocal();schedulePush();
+  if(!ok)alert('WARNING: this browser\'s local storage is FULL ('+storageKB()+' KB saved of about 5000 KB), so your newest changes are NOT stored on this device yet.\n\n'+(syncActive()?'Cloud sync is on, so they are being sent to the team cloud now — do not close this tab until the sync light is green.':'Turn on Cloud sync in Settings, or use Export to back up your data, then delete old outings you no longer need.'));
+  return ok;
+}
 function sessionById(id){return DB.sessions.find(s=>s.id===id)}
 function pitcherById(id){return DB.roster.find(p=>p.id===id)}
 function pitcherName(id){const p=pitcherById(id);return p?p.name:'—'}
@@ -1525,6 +1537,10 @@ function matchSession(date){return DB.sessions.find(s=>s.date===date);}
 
 document.getElementById('tmFiles').onchange=async(e)=>{
   const files=[...e.target.files];if(!files.length)return;
+  // Reset the picker so choosing the SAME file(s) again still fires a change event (browsers ignore an identical re-selection).
+  try{e.target.value='';}catch(_){}
+  // Start a fresh batch: drop cards that were already saved so new uploads aren't buried under old results.
+  tmParsed=tmParsed.filter(x=>!x.applied);
   if(!window.pdfjsLib){document.getElementById('tmStatus').innerHTML='<span style="color:var(--red2)">PDF library did not load. Open this page in a normal browser tab.</span>';return;}
   document.getElementById('tmStatus').textContent='Reading '+files.length+' file(s)…';
   for(const f of files){
@@ -1538,7 +1554,10 @@ document.getElementById('tmFiles').onchange=async(e)=>{
       tmParsed.push(parsed);
     }catch(err){tmParsed.push({file:f.name,error:String(err),pitches:[]});}
   }
-  document.getElementById('tmStatus').textContent='';renderTMResults();
+  const bad=tmParsed.filter(x=>x.error).length;
+  document.getElementById('tmStatus').innerHTML='<span style="color:var(--green)">Loaded '+files.length+' PDF'+(files.length>1?'s':'')+' — review each card below, then press Save on each.</span>'+(bad?' <span style="color:var(--red2)">'+bad+' could not be read.</span>':'');
+  renderTMResults();
+  try{document.getElementById('tmResults').scrollIntoView({behavior:'smooth',block:'start'});}catch(_){}
 };
 function renderTMResults(){
   const box=document.getElementById('tmResults');
