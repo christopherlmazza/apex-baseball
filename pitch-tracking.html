@@ -1300,18 +1300,35 @@ function renderLeaderboard(){
 /* ---------------- PITCHER LOG ---------------- */
 // Aggregate charted per-pitcher counting stats across sessions -> one row per pitcher.
 function pitcherLogRows(sessions, roster){
-  const agg={};
+  const agg={},typ={};
   const K=['tp','strikes','ball','bf','ab','h','bb','hbp','k','fps','outs','r','er','lhOut','twoK3'];
   (sessions||[]).forEach(s=>{const rep=replaySession(s);
-    for(const pid in rep.stat){agg[pid]=agg[pid]||{};K.forEach(k=>agg[pid][k]=(agg[pid][k]||0)+rep.stat[pid][k]);}});
+    for(const pid in rep.stat){agg[pid]=agg[pid]||{};K.forEach(k=>agg[pid][k]=(agg[pid][k]||0)+rep.stat[pid][k]);}
+    // per pitch-type totals + strikes (same strike rule as S: anything that is not a ball or HBP)
+    rep.annotated.forEach(a=>{if(!a.type)return;const t=typ[a.pitcherId]=typ[a.pitcherId]||{};const b=t[a.type]=t[a.type]||{n:0,x:0};
+      b.n++;if(a.result!=='Ball'&&a.result!=='HBP')b.x++;});});
   const rows=[];
   (roster||[]).forEach(p=>{const a=agg[p.id];if(!a||!a.bf)return;
     rows.push({name:p.name, ip:Math.round(a.outs/3*1000)/1000, er:a.er, r:a.r, h:a.h, ab:a.ab, bb:a.bb, hbp:a.hbp,
-      k:a.k, bf:a.bf, fps:a.fps, tp:a.tp, s:a.strikes, lhOut:a.lhOut, twoK3:a.twoK3});});
+      k:a.k, bf:a.bf, fps:a.fps, tp:a.tp, s:a.strikes, lhOut:a.lhOut, twoK3:a.twoK3, types:typ[p.id]||{}});});
   return rows;
 }
+// Team totals for the first table (same maths as the Totals row in the Excel sheet).
+function pitcherLogTotals(rows){
+  const t={ip:0,er:0,r:0,h:0,ab:0,bb:0,hbp:0,k:0,bf:0,fps:0,tp:0,s:0,lhOut:0,twoK3:0};
+  rows.forEach(d=>{for(const k in t)t[k]+=d[k];});
+  t.twoAvg=rows.length?rows.reduce((a,d)=>a+(d.bf?d.twoK3/d.bf:0),0)/rows.length:null;
+  return t;
+}
+// Pitch-type groups of the second table: the sheet's own five, plus any other type that was actually thrown.
+const LOG_TYPE_BASE=[['FB','FB'],['CB','CB'],['SL','SL'],['CH','CH'],['CT','Cut']];
+function pitcherLogTypeGroups(rows){
+  const base=LOG_TYPE_BASE.map(g=>g[0]);
+  const extra=PITCH_TYPES.map(t=>t.code).filter(c=>base.indexOf(c)<0&&rows.some(d=>d.types[c]&&d.types[c].n));
+  return LOG_TYPE_BASE.map(g=>({code:g[0],lab:g[1],base:true})).concat(extra.map(c=>({code:c,lab:c,base:false})));
+}
 const LOG_HEADS=['','IP','E.R.A','Bavg.A.','WHIP','Hits',"AB's",'Runs','ER','BB','HBP','K','BF','FPS','FPS%','TP','S','x%','LH Out','Leadoff HO %','2x - 3P','2x -3P %'];
-const PL_TMPL_B64="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";
+const PL_TMPL_B64="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";
 function logScopeSessions(){
   const v=document.getElementById('logScope').value;
   if(v&&v!=='all'){const s=sessionById(v);return s?[s]:[];}
@@ -1349,36 +1366,87 @@ function renderLog(){
       `<td>${d.twoK3}</td><td>${p1(d.twoK3,d.bf)}</td>`+
     '</tr>';
   });
-  h+='</table></div><div class="hint">'+rows.length+' pitcher(s). x = strike; LH Out = leadoff hitters retired; 2x-3P = two strikes within the first 3 pitches. Download for the Excel sheet with live formulas.</div></div>';
+  const T=pitcherLogTotals(rows);
+  h+='<tr style="font-weight:700;border-top:2px solid var(--line)">'+
+    `<td>Totals</td><td>${T.ip.toFixed(1)}</td><td>${T.ip?((T.er/T.ip)*9).toFixed(2):'—'}</td><td>${f2(T.h,T.ab)}</td>`+
+    `<td>${T.ip?((T.h+T.bb)/T.ip).toFixed(2):'—'}</td><td>${T.h}</td><td>${T.ab}</td><td>${T.r}</td><td>${T.er}</td>`+
+    `<td>${T.bb}</td><td>${T.hbp}</td><td>${T.k}</td><td>${T.bf}</td><td>${T.fps}</td><td>${p1(T.fps,T.bf)}</td>`+
+    `<td>${T.tp}</td><td>${T.s}</td><td>${p1(T.s,T.tp)}</td><td>${T.lhOut}</td>`+
+    `<td>${T.ip?Math.round(10000*T.lhOut/T.ip)/100+'%':'—'}</td><td>${T.twoK3}</td>`+
+    `<td>${T.twoAvg==null?'—':Math.round(10000*T.twoAvg)/100+'%'}</td></tr>`;
+  h+='</table></div><div class="hint">'+rows.length+' pitcher(s). x = strike; LH Out = leadoff hitters retired; 2x-3P = two strikes within the first 3 pitches. Totals 2x-3P % is the average of the pitchers\' percentages, as in the Excel sheet. Download for the Excel sheet with live formulas.</div></div>';
+  // second table: pitch-type breakdown (total, strikes, strike %, usage)
+  const G=pitcherLogTypeGroups(rows);
+  h+='<div class="card"><h3>By pitch type</h3><div class="tblscroll"><table><tr><th>Name</th><th>Total Pitches</th>';
+  G.forEach(g=>{h+=`<th>${g.lab} ${g.lab==='Cut'?'Tot':'Total'}</th><th>${g.lab}${g.lab==='Cut'?' X':'x'}</th><th>${g.lab}x%</th><th>${g.lab} Usage</th>`;});
+  h+='</tr>';
+  rows.forEach(d=>{h+=`<tr><td>${esc(d.name)}</td><td>${d.tp}</td>`;
+    G.forEach(g=>{const b=d.types[g.code];
+      h+=(b&&b.n)?`<td>${b.n}</td><td>${b.x}</td><td>${p1(b.x,b.n)}</td><td>${p1(b.n,d.tp)}</td>`:'<td></td><td></td><td></td><td></td>';});
+    h+='</tr>';});
+  h+='</table></div><div class="hint">Total = pitches of that type, x = strikes, x% = strikes ÷ total, Usage = total ÷ all pitches. Blank = the pitcher did not throw that pitch.</div></div>';
   body.innerHTML=h;
 }
-// Build the download by filling the embedded "Fall Pitcher Stats" template (exact carbon copy:
-// same sheet name, header styling, formulas, number formats, fonts, borders & column widths).
+// Build the download from the embedded "Fall Pitcher Stats" template (same sheet name, header styling, formulas,
+// number formats, fonts, borders & column widths): table 1 + Totals row, then the pitch-type table.
 // Per-pitcher red/yellow highlights are the coach's manual annotations, left blank to fill in.
 async function downloadPitcherLog(){
   const rows=pitcherLogRows(logScopeSessions(),DB.roster);
   if(!rows.length){alert('No charted data to export for this scope.');return;}
   if(typeof ExcelJS==='undefined'){alert('Spreadsheet library still loading — try again in a second.');return;}
-  // decode embedded template
   const bin=atob(PL_TMPL_B64);const u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
   const wb=new ExcelJS.Workbook();
   await wb.xlsx.load(u8.buffer);
   const ws=wb.worksheets[0];
-  const N=rows.length;
-  if(N>1)ws.duplicateRow(2,N-1,true); // clone the styled prototype row for each extra pitcher
-  rows.forEach((d,i)=>{const r=2+i;const R=ws.getRow(r);
-    R.getCell(1).value=d.name;
-    R.getCell(2).value=Math.round(d.ip*1000)/1000;
-    R.getCell(3).value={formula:`(I${r}/B${r})*9`};
-    R.getCell(4).value={formula:`(F${r}/G${r})`};
-    R.getCell(5).value={formula:`(F${r}+J${r})/B${r}`};
-    R.getCell(6).value=d.h; R.getCell(7).value=d.ab; R.getCell(8).value=d.r; R.getCell(9).value=d.er;
-    R.getCell(10).value=d.bb; R.getCell(11).value=d.hbp; R.getCell(12).value=d.k; R.getCell(13).value=d.bf;
-    R.getCell(14).value=d.fps; R.getCell(15).value={formula:`(N${r}/M${r})`};
-    R.getCell(16).value=d.tp; R.getCell(17).value=d.s; R.getCell(18).value={formula:`(Q${r}/P${r})`};
-    R.getCell(19).value=d.lhOut; R.getCell(20).value={formula:`(S${r}/B${r})`};
-    R.getCell(21).value=d.twoK3; R.getCell(22).value={formula:`(U${r}/M${r})`};
-  });
+  const NC=22,N=rows.length,G=pitcherLogTypeGroups(rows),W=2+4*G.length;
+  const L=n=>{let s='';while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=(n-m-1)/26;}return s;};
+  // styled prototype rows in the template: 2 = pitcher, 3 = Totals, 4 = spacer, 5 = table-2 header, 6 = table-2 pitcher
+  const grab=r=>{const R=ws.getRow(r);const st=[],v=[];for(let c=1;c<=NC;c++){const x=R.getCell(c);st[c]=JSON.stringify(x.style||{});v[c]=x.value;}return {h:R.height,st,v};};
+  const P1=grab(2),PT=grab(3),PS=grab(4),PH=grab(5),P2=grab(6);
+  // columns past V (extra pitch types) reuse the look of the sheet's last group (S:V)
+  const pc=c=>c<=NC?c:19+((c-23)%4);
+  const put=(r,P,vals,w)=>{const R=ws.getRow(r);R.height=P.h;
+    for(let c=1;c<=Math.max(NC,W);c++){const x=R.getCell(c);x.style=(c<=(w||NC))?JSON.parse(P.st[pc(c)]):{};const v=vals[c];x.value=(v===undefined?null:v);}};
+  // a formula that also carries its computed value, so phone/preview apps that do not calculate still show it
+  const F=(formula,val)=>({formula,result:(val==null||!isFinite(val))?{error:'#DIV/0!'}:val});
+  const dv=(a,b)=>b?a/b:null;
+  // ---- table 1: one row per pitcher
+  rows.forEach((d,i)=>{const r=2+i,v=[];
+    v[1]=d.name;v[2]=d.ip;
+    v[3]=F(`(I${r}/B${r})*9`,d.ip?d.er/d.ip*9:null);v[4]=F(`(F${r}/G${r})`,dv(d.h,d.ab));v[5]=F(`(F${r}+J${r})/B${r}`,dv(d.h+d.bb,d.ip));
+    v[6]=d.h;v[7]=d.ab;v[8]=d.r;v[9]=d.er;v[10]=d.bb;v[11]=d.hbp;v[12]=d.k;v[13]=d.bf;
+    v[14]=d.fps;v[15]=F(`(N${r}/M${r})`,dv(d.fps,d.bf));
+    v[16]=d.tp;v[17]=d.s;v[18]=F(`(Q${r}/P${r})`,dv(d.s,d.tp));
+    v[19]=d.lhOut;v[20]=F(`(S${r}/B${r})`,dv(d.lhOut,d.ip));
+    v[21]=d.twoK3;v[22]=F(`(U${r}/M${r})`,dv(d.twoK3,d.bf));
+    put(r,P1,v);});
+  // ---- Totals row (directly under the last pitcher)
+  const last=N+1,t=N+2,T=pitcherLogTotals(rows),tv=[];
+  const SUM=(c,val)=>F(`SUM(${L(c)}2:${L(c)}${last})`,val);
+  tv[1]='Totals';tv[2]=SUM(2,T.ip);
+  tv[3]=F(`I${t}/B${t}*9`,T.ip?T.er/T.ip*9:null);tv[4]=F(`(F${t}/G${t})`,dv(T.h,T.ab));tv[5]=F(`(J${t}+F${t})/B${t}`,dv(T.bb+T.h,T.ip));
+  tv[6]=SUM(6,T.h);tv[7]=SUM(7,T.ab);tv[8]=SUM(8,T.r);tv[9]=SUM(9,T.er);tv[10]=SUM(10,T.bb);tv[11]=SUM(11,T.hbp);
+  tv[12]=SUM(12,T.k);tv[13]=SUM(13,T.bf);tv[14]=SUM(14,T.fps);tv[15]=F(`(N${t}/M${t})`,dv(T.fps,T.bf));
+  tv[16]=SUM(16,T.tp);tv[17]=SUM(17,T.s);tv[18]=F(`(Q${t}/P${t})`,dv(T.s,T.tp));
+  tv[19]=SUM(19,T.lhOut);tv[20]=F(`(S${t}/B${t})`,dv(T.lhOut,T.ip));
+  tv[21]=SUM(21,T.twoK3);tv[22]=F(`AVERAGE(V2:V${last})`,T.twoAvg);
+  put(t,PT,tv);
+  put(t+1,PS,[]);
+  // ---- table 2: pitch-type breakdown (header two rows under Totals, like the sheet)
+  const h=t+2,hv=PH.v.slice();
+  G.forEach((g,gi)=>{if(g.base)return;const c=3+4*gi;hv[c]=g.lab+' Total';hv[c+1]=g.lab+'x';hv[c+2]=g.lab+'x%';hv[c+3]=g.lab+' Usage';});
+  put(h,PH,hv,W);
+  rows.forEach((d,i)=>{const r=h+1+i,v=[];v[1]=d.name;v[2]=d.tp;
+    G.forEach((g,gi)=>{const b=d.types[g.code];if(!b||!b.n)return; // not thrown: left blank, as in the sheet
+      const c=3+4*gi;v[c]=b.n;v[c+1]=b.x;
+      v[c+2]=F(`(${L(c+1)}${r}/${L(c)}${r})`,dv(b.x,b.n));v[c+3]=F(`(${L(c)}${r}/B${r})`,dv(b.n,d.tp));});
+    put(r,P2,v,W);});
+  // full roster names are longer than the sheet's last-name column: widen column A only as far as needed
+  ws.getColumn(1).width=Math.max(14.125,Math.min(40,2+1.4*Math.max(...rows.map(d=>String(d.name).length))));
+  // ExcelJS writes <outlinePr> after <pageSetUpPr>, which desktop Excel rejects as a corrupt sheet. The sheet has no
+  // outline settings, so drop them and keep fit-to-page for printing.
+  if(ws.properties)delete ws.properties.outlineProperties;
+  wb.calcProperties=Object.assign({},wb.calcProperties,{fullCalcOnLoad:true}); // Excel recalculates everything on open
   const buf=await wb.xlsx.writeBuffer();
   const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='Pitcher Logs.xlsx';
