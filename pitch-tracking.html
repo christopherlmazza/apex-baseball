@@ -371,11 +371,10 @@
       <div><label class="fld">Batter hand</label><select id="amSide"><option value="">All batters</option><option value="R">vs RHH</option><option value="L">vs LHH</option><option value="both">RHH and LHH (two rows)</option></select></div>
       <div><label class="fld">Count</label><select id="amCount"></select></div>
       <div><label class="fld">Aim for</label><select id="amObj"><option value="rv">Best run value</option><option value="zone">Most strikes</option></select></div>
-      <div><label class="fld">Command model</label><select id="amMiss"><option value="spread">Scatter around his average</option><option value="mid">Miss from middle-middle (college tab)</option></select></div>
       <div><label class="fld">Style</label><select id="amStyle"><option value="dark">Dark</option><option value="light">Light (saves ink)</option></select></div>
     </div>
     <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap"><button class="btn red" id="amPrint">Print</button><button class="btn" id="amDownload">Download image</button></div>
-    <div class="hint">The glove marks the aim point that gives each pitch its best result once the pitcher's real command is applied; the small ring is where his pitches centre now. Command comes from his <b>intersquad</b> TrackMan locations only (bullpens are ignored). Run values use the same 2026 college model as the APEX Optimal Aim tab, split by batter hand and count. Batter hand and count change the run-value surface; his command is pooled across them because TrackMan's report does not tie a location to a specific pitch. Throws is read from TrackMan — change it here if it is wrong.</div>
+    <div class="hint">The glove marks where to set the target so each pitch gets its best result once the pitcher's real misses are applied. Every <b>intersquad</b> pitch is read as a miss from a middle-middle target (bullpens are ignored), the same miss calculation as the APEX Optimal Aim tab. Run values use that tab's 2026 college model, split by batter hand and count. Batter hand and count change the run-value surface; his misses are pooled across them because TrackMan's report does not tie a location to a specific pitch. Throws is read from TrackMan — change it here if it is wrong.</div>
   </div>
   <div id="amBody"></div>
 </section>
@@ -2058,7 +2057,7 @@ const AZL=-0.83,AZR=0.83,AZB=1.6,AZT=3.5,ACW=(AZR-AZL)/5,AX0=AZL-ACW,ARH=(AZT-AZ
 // aim grid shown on each panel: 4 ft wide x 4.8 ft tall in 2 in x 2.4 in steps
 const AIM_NX=24,AIM_NY=24,AIM_XL=-2,AIM_XR=2,AIM_YB=0.2,AIM_YT=5.0,AIM_DX=(AIM_XR-AIM_XL)/AIM_NX,AIM_DY=(AIM_YT-AIM_YB)/AIM_NY;
 const AIM_MIN=5,AIM_PRIOR=8,AIM_LOW=15;
-const AIM={pid:null,side:'',count:'',obj:'rv',style:'dark',miss:'spread'};
+const AIM={pid:null,side:'',count:'',obj:'rv',style:'dark',miss:'mid'}; // catchers set up middle-middle in intersquads
 
 // Throwing hand: stored on the roster if the coach set it, otherwise read off TrackMan (a righty's fastball runs to +HB).
 function pitcherHand(pid){
@@ -2275,14 +2274,13 @@ function renderAim(){
   if(prev&&list.some(p=>p.id===prev))psel.value=prev;AIM.pid=psel.value||null;
   const csel=document.getElementById('amCount');
   if(!csel.options.length)csel.innerHTML='<option value="">All counts</option><option value="each">Every count (12 rows)</option>'+AIM_COUNTS.map(k=>`<option value="${k}">${k}</option>`).join('');
-  csel.value=AIM.count;document.getElementById('amSide').value=AIM.side;document.getElementById('amObj').value=AIM.obj;document.getElementById('amStyle').value=AIM.style;document.getElementById('amMiss').value=AIM.miss;
+  csel.value=AIM.count;document.getElementById('amSide').value=AIM.side;document.getElementById('amObj').value=AIM.obj;document.getElementById('amStyle').value=AIM.style;
   const hsel=document.getElementById('amHand');
   psel.onchange=()=>{AIM.pid=psel.value;renderAim();};
   csel.onchange=()=>{AIM.count=csel.value;renderAim();};
   document.getElementById('amSide').onchange=e=>{AIM.side=e.target.value;renderAim();};
   document.getElementById('amObj').onchange=e=>{AIM.obj=e.target.value;renderAim();};
   document.getElementById('amStyle').onchange=e=>{AIM.style=e.target.value;renderAim();};
-  document.getElementById('amMiss').onchange=e=>{AIM.miss=e.target.value;renderAim();};
   hsel.onchange=()=>{const p=pitcherById(AIM.pid);if(p){p.hand=hsel.value;save();renderAim();}};
   document.getElementById('amPrint').onclick=aimPrint;document.getElementById('amDownload').onclick=aimDownload;
   if(!AIM.pid){AIM_MODEL=null;hsel.value='R';body.innerHTML='<div class="card empty">No intersquad TrackMan locations yet. Upload a TrackMan PDF in the TrackMan tab, set it to Intersquad and attach it to the charted session — a pitch needs at least '+AIM_MIN+' located intersquad pitches to get a target.</div>';return;}
