@@ -272,10 +272,11 @@
 <section class="view" id="v-reports">
   <div class="card">
     <div class="row">
-      <div style="flex:2"><label class="fld">Outing</label><select id="rpItem"></select></div>
+      <div><label class="fld">Pitcher</label><select id="rpPitcher"></select></div>
+      <div style="flex:2"><label class="fld">Report</label><select id="rpItem"></select></div>
       <div><label class="fld">Batter hand</label><select id="rpSide"><option value="">All batters</option><option value="R">vs RHH</option><option value="L">vs LHH</option></select></div>
     </div>
-    <div class="hint">Every TrackMan upload shows here — bullpens and intersquads. Intersquads also show charting KPIs. Batter hand applies to the charting section only.</div>
+    <div class="hint">Pick a pitcher, then any of his reports (newest first) — every TrackMan upload, bullpens and intersquads. Intersquads also show charting KPIs. Batter hand applies to the charting section only.</div>
   </div>
   <div id="rpBody"></div>
 </section>
@@ -1024,20 +1025,31 @@ function reportItems(){
     const pids=new Set();
     (DB.outings||[]).filter(o=>o.sessionId===s.id&&outEnv(o)==='intersquad').forEach(o=>pids.add(o.pitcherId));
     (s.pitches||[]).forEach(x=>{if((x.kind===undefined||x.kind==='p')&&x.pitcherId)pids.add(x.pitcherId);});
-    if(!pids.size){items.push({key:'s:'+s.id,date:s.date,sort:(s.date||'')+' '+(s.label||''),
-      label:`${fmtDate(s.date)} · ${s.label||'Intersquad'} · Intersquad (no data yet)`});return;}
-    pids.forEach(pid=>items.push({key:'sp:'+s.id+'|'+pid,date:s.date,sort:(s.date||'')+' '+pitcherName(pid),
-      label:`${fmtDate(s.date)} · ${pitcherName(pid)} · ${s.label||'Intersquad'} · Intersquad`}));
+    if(!pids.size){items.push({key:'s:'+s.id,pid:'',date:s.date,sort:(s.date||'')+' '+(s.label||''),
+      label:`${fmtDate(s.date)} · ${s.label||'Intersquad'} · Intersquad (no data yet)`,short:`${fmtDate(s.date)} · ${s.label||'Intersquad'} (no data yet)`});return;}
+    pids.forEach(pid=>items.push({key:'sp:'+s.id+'|'+pid,pid,date:s.date,sort:(s.date||'')+' '+pitcherName(pid),
+      label:`${fmtDate(s.date)} · ${pitcherName(pid)} · ${s.label||'Intersquad'} · Intersquad`,short:`${fmtDate(s.date)} · Intersquad · ${s.label||''}`}));
   });
-  (DB.outings||[]).filter(o=>outEnv(o)==='bullpen').forEach(o=>items.push({key:'b:'+o.id,date:o.date,sort:(o.date||'')+' '+(o.name||''),
-    label:`${fmtDate(o.date)||'—'} · ${o.name||pitcherName(o.pitcherId)} · Bullpen`}));
+  (DB.outings||[]).filter(o=>outEnv(o)==='bullpen').forEach(o=>items.push({key:'b:'+o.id,pid:o.pitcherId,date:o.date,sort:(o.date||'')+' '+(o.name||'')+' '+(o.ts||0),
+    label:`${fmtDate(o.date)||'—'} · ${o.name||pitcherName(o.pitcherId)} · Bullpen`,short:`${fmtDate(o.date)||'—'} · Bullpen`}));
   items.sort((a,b)=>(b.sort||'').localeCompare(a.sort||''));
   return items;
 }
+// Reports: choose a pitcher, then one of the reports under his name (newest first).
+let RP_PID=null;
 function refreshReportPickers(){
-  const el=document.getElementById('rpItem');const cur=el.value;const items=reportItems();
-  el.innerHTML=items.length?items.map(it=>`<option value="${it.key}">${esc(it.label)}</option>`).join(''):'<option value="">— no outings yet —</option>';
-  if(cur&&items.some(it=>it.key===cur))el.value=cur;
+  const ps=document.getElementById('rpPitcher'),el=document.getElementById('rpItem');const items=reportItems();
+  const pids=[...new Set(items.map(it=>it.pid).filter(Boolean))].sort((a,b)=>pitcherName(a).localeCompare(pitcherName(b)));
+  const hasTeam=items.some(it=>!it.pid);
+  const prev=RP_PID!=null?RP_PID:ps.value;
+  ps.innerHTML=(pids.length||hasTeam)?pids.map(id=>{const n=items.filter(it=>it.pid===id).length;return `<option value="${id}">${esc(pitcherName(id))} (${n})</option>`;}).join('')+(hasTeam?'<option value="__team">Team intersquads (no data yet)</option>':''):'<option value="">— no outings yet —</option>';
+  // default: the pitcher with the most recent report
+  if(prev&&[...ps.options].some(o=>o.value===prev))ps.value=prev;else if(items.length)ps.value=items[0].pid||'__team';
+  RP_PID=ps.value;
+  const mine=items.filter(it=>RP_PID==='__team'?!it.pid:it.pid===RP_PID);
+  const cur=el.value;
+  el.innerHTML=mine.length?mine.map(it=>`<option value="${it.key}">${esc(it.short||it.label)}</option>`).join(''):'<option value="">— no reports —</option>';
+  if(cur&&mine.some(it=>it.key===cur))el.value=cur;
 }
 /* ===== helpers: display, approach-angle estimate, plots ===== */
 function ftInch(v){if(v==null||isNaN(v))return '—';const neg=v<0;v=Math.abs(v);let ft=Math.floor(v+1e-6);let inch=Math.round((v-ft)*12);if(inch===12){ft++;inch=0;}return (neg?'-':'')+ft+"'"+inch+'"';}
@@ -1195,6 +1207,7 @@ function tmTableHtml(m, tmLoc){
       <td>${a.ivb}</td><td>${a.hb}</td><td>${a.ext}</td><td>${a.relh}</td><td>${a.relside}</td></tr>`;});
   h+=`</table></div><div class="hint">Averages across pitches matched to a TrackMan row. Zone% = share of that pitch's TrackMan locations inside the strike zone. Release &amp; extension in feet, break in inches, spin in rpm.</div></div>`;return h;
 }
+document.getElementById('rpPitcher').onchange=e=>{RP_PID=e.target.value;document.getElementById('rpItem').value='';renderReports();};
 document.getElementById('rpItem').onchange=renderReports;
 document.getElementById('rpSide').onchange=renderReports;
 function avgTM(list){
@@ -2400,17 +2413,40 @@ function mergeRemote(remote){
   applyTomb();
   return changed;
 }
-let pushTimer=null,pushing=false;
-function schedulePush(){if(!syncActive())return;clearTimeout(pushTimer);pushTimer=setTimeout(pushCloud,1200);}
+let pushTimer=null,pushing=false,pushAgain=false,pushRetry=null;
+// A change that has not reached the team cloud yet. Kept in localStorage too, so closing the tab can't lose it.
+function syncDirty(v){try{if(v===undefined)return localStorage.getItem('shu_pt_dirty')==='1';localStorage.setItem('shu_pt_dirty',v?'1':'0');}catch(e){}return !!v;}
+function schedulePush(){if(!syncActive())return;syncDirty(true);clearTimeout(pushTimer);pushTimer=setTimeout(pushCloud,1200);}
+// Write = read the cloud copy, fold it into this device (union, deletions honoured), then write the union back
+// ONLY if nobody else wrote in between (checked on updated_at). Before, a device with an older copy could replace
+// the whole cloud row and wipe out uploads made on another device. A failed write now retries every 20 s and
+// whenever the device comes back online or the tab comes back into view.
 async function pushCloud(){
-  if(!syncActive()||pushing)return;pushing=true;setSyncStatus('syncing');
+  if(!syncActive())return;if(pushing){pushAgain=true;return;}pushing=true;setSyncStatus('syncing');clearTimeout(pushRetry);
+  const base=syncURL()+'/rest/v1/pt_state',room=encodeURIComponent(syncROOM());
   try{
-    const body=[{id:syncROOM(),data:DB,updated_at:new Date().toISOString()}];
-    const r=await fetch(syncURL()+'/rest/v1/pt_state?on_conflict=id',{method:'POST',
-      headers:{...supaHeaders(),'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(body)});
-    if(!r.ok)throw new Error('HTTP '+r.status+' '+(await r.text()).slice(0,80));
-    setSyncStatus('ok');
-  }catch(e){setSyncStatus('err',e.message);}finally{pushing=false;}
+    let done=false;
+    for(let attempt=0;attempt<5&&!done;attempt++){
+      const r=await fetch(base+'?id=eq.'+room+'&select=data,updated_at',{headers:supaHeaders(),cache:'no-store'});
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      const rows=await r.json();const row=rows&&rows[0];
+      if(row&&row.data&&mergeRemote(row.data)){saveLocal();rerenderActive();}
+      const now=new Date().toISOString();
+      if(row&&row.updated_at){
+        const w=await fetch(base+'?id=eq.'+room+'&updated_at=eq.'+encodeURIComponent(row.updated_at)+'&select=id',{method:'PATCH',
+          headers:{...supaHeaders(),'Prefer':'return=representation'},body:JSON.stringify({data:DB,updated_at:now})});
+        if(!w.ok)throw new Error('HTTP '+w.status+' '+(await w.text()).slice(0,80));
+        const out=await w.json();done=Array.isArray(out)&&out.length>0; // 0 rows = someone wrote first: merge their copy and try again
+      }else{
+        const w=await fetch(base+'?on_conflict=id',{method:'POST',headers:{...supaHeaders(),'Prefer':'resolution=merge-duplicates,return=minimal'},
+          body:JSON.stringify([{id:syncROOM(),data:DB,updated_at:now}])});
+        if(!w.ok)throw new Error('HTTP '+w.status+' '+(await w.text()).slice(0,80));done=true;
+      }
+    }
+    if(!done)throw new Error('cloud busy');
+    syncDirty(false);setSyncStatus('ok');
+  }catch(e){setSyncStatus('err',(e.message||'offline')+' — not synced yet, retrying');pushRetry=setTimeout(pushCloud,20000);}
+  finally{pushing=false;if(pushAgain){pushAgain=false;setTimeout(pushCloud,300);}}
 }
 async function pullCloud(silent){
   if(!syncActive())return false;if(!silent)setSyncStatus('syncing');
@@ -2429,7 +2465,11 @@ function rerenderActive(){
   else if(which==='pitchers')renderPitcherDB();else if(which==='data')renderData();
 }
 function startSyncLoop(){if(window.__syncLoop)clearInterval(window.__syncLoop);
-  if(syncActive())window.__syncLoop=setInterval(()=>pullCloud(true),15000);}
+  if(syncActive())window.__syncLoop=setInterval(()=>{if(syncDirty())pushCloud();else pullCloud(true);},15000);}
+// Phones and iPads freeze background tabs, so catch up the moment the hub is looked at again or the connection returns.
+let lastWake=0;
+function syncWake(){if(!syncActive()||document.hidden)return;const t=Date.now();if(t-lastWake<5000)return;lastWake=t;if(syncDirty())pushCloud();else pullCloud(true);}
+document.addEventListener('visibilitychange',syncWake);window.addEventListener('online',syncWake);window.addEventListener('focus',syncWake);
 // Data-tab cloud controls
 function wireCloudUI(){
   const c=syncCfg();
@@ -2445,7 +2485,7 @@ document.getElementById('cfgConnect').onclick=async()=>{
   const ok=await pullCloud();if(ok){await pushCloud();startSyncLoop();alert('Connected. This device is now syncing with the team cloud.');}
   else alert('Could not connect. Double-check the Project URL and anon key.');
 };
-document.getElementById('cfgSyncNow').onclick=async()=>{await pullCloud();await pushCloud();};
+document.getElementById('cfgSyncNow').onclick=async()=>{await pushCloud();};
 document.getElementById('cfgDisconnect').onclick=()=>{localStorage.removeItem('shu_pt_sync');if(window.__syncLoop)clearInterval(window.__syncLoop);setSyncStatus('off');alert('Cloud sync turned off on this device. Your data stays here locally.');};
 
 /* ---------------- boot ---------------- */
@@ -2453,7 +2493,7 @@ function boot(){
   load();
   if(!document.getElementById('newSessDate').value)document.getElementById('newSessDate').value=todayISO();
   buildTiles();refreshSessionPickers();renderChart();updateSessInfo();renderData();wireCloudUI();
-  if(syncActive()){pullCloud().then(()=>{pushCloud();});startSyncLoop();}
+  if(syncActive()){pushCloud();startSyncLoop();}
 }
 boot();
 </script>
