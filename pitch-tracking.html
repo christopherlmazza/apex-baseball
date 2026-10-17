@@ -328,9 +328,9 @@
 <!-- ============ TRACKMAN ============ -->
 <section class="view" id="v-trackman">
   <div class="card">
-    <h3>Attach TrackMan session PDFs</h3>
-    <p class="muted" style="margin:0 0 10px">Upload one or more portable-unit session PDFs (one file = one pitcher's session). Each is matched to a charted session by <b>pitcher name + date</b>, then its pitches are aligned in order onto what your charter logged.</p>
-    <input type="file" id="tmFiles" accept="application/pdf" multiple style="padding:9px;background:var(--panel2);border:1px dashed var(--line);border-radius:10px;width:100%">
+    <h3>Upload TrackMan files</h3>
+    <p class="muted" style="margin:0 0 10px"><b>Portable-unit PDFs</b> (one file = one pitcher's session) save as a bullpen or attach to a charted intersquad. <b>Stadium-unit game CSVs</b> (the full game export) save as a charted game: every pitch with its count, batter, result and location, plus each pitcher's stuff.</p>
+    <input type="file" id="tmFiles" accept="application/pdf,.pdf,.csv,text/csv" multiple style="padding:9px;background:var(--panel2);border:1px dashed var(--line);border-radius:10px;width:100%">
     <div id="tmStatus" class="hint"></div>
   </div>
   <div id="tmResults"></div>
@@ -993,7 +993,7 @@ function paintAllHeat(){
     try{drawHeat(cv,HEATREG[cv.dataset.hid]||[]);}catch(e){}
   });
 }
-function tmHeatmapsHtml(locByType){
+function tmHeatmapsHtml(locByType,exact){
   const types=PITCH_TYPES.filter(t=>locByType[t.code]&&locByType[t.code].length);
   if(!types.length)return '';
   let cards='';
@@ -1007,7 +1007,7 @@ function tmHeatmapsHtml(locByType){
         <div class="szbox" style="left:29.25%;top:25%;width:41.5%;height:50%"></div>
       </div>
       <div class="sub">${pts.length} located · <b style="color:${zc}">${fmtPct(z)} zone</b></div></div>`;});
-  return `<div class="card"><h3>TrackMan location heatmaps <span class="tag tm">TM</span> <span class="muted" style="text-transform:none;letter-spacing:0">— catcher's view</span></h3><div class="hmgrid">${cards}</div><div class="hint">Blue = least, red = most. Solid box = strike zone. Rebuilt from TrackMan's location plot; overlapping pitches merge into one point, so the very busiest spots are slightly under-counted, and these aren't split by batter hand.</div></div>`;
+  return `<div class="card"><h3>TrackMan location heatmaps <span class="tag tm">TM</span> <span class="muted" style="text-transform:none;letter-spacing:0">— catcher's view</span></h3><div class="hmgrid">${cards}</div><div class="hint">Blue = least, red = most. Solid box = strike zone. ${exact?'Every pitch at its exact TrackMan plate location (stadium unit); these follow the batter-hand filter.':'Rebuilt from TrackMan\'s location plot; overlapping pitches merge into one point, so the very busiest spots are slightly under-counted, and these aren\'t split by batter hand.'}</div></div>`;
 }
 function gatherTMLoc(sessIds,pid){
   const out={};
@@ -1027,8 +1027,9 @@ function reportItems(){
     (s.pitches||[]).forEach(x=>{if((x.kind===undefined||x.kind==='p')&&x.pitcherId)pids.add(x.pitcherId);});
     if(!pids.size){items.push({key:'s:'+s.id,pid:'',date:s.date,sort:(s.date||'')+' '+(s.label||''),
       label:`${fmtDate(s.date)} · ${s.label||'Intersquad'} · Intersquad (no data yet)`,short:`${fmtDate(s.date)} · ${s.label||'Intersquad'} (no data yet)`});return;}
+    const env=s.kind==='game'?'Game':'Intersquad';
     pids.forEach(pid=>items.push({key:'sp:'+s.id+'|'+pid,pid,date:s.date,sort:(s.date||'')+' '+pitcherName(pid),
-      label:`${fmtDate(s.date)} · ${pitcherName(pid)} · ${s.label||'Intersquad'} · Intersquad`,short:`${fmtDate(s.date)} · Intersquad · ${s.label||''}`}));
+      label:`${fmtDate(s.date)} · ${pitcherName(pid)} · ${s.label||env} · ${env}`,short:`${fmtDate(s.date)} · ${env} · ${s.label||''}`}));
   });
   (DB.outings||[]).filter(o=>outEnv(o)==='bullpen').forEach(o=>items.push({key:'b:'+o.id,pid:o.pitcherId,date:o.date,sort:(o.date||'')+' '+(o.name||'')+' '+(o.ts||0),
     label:`${fmtDate(o.date)||'—'} · ${o.name||pitcherName(o.pitcherId)} · Bullpen`,short:`${fmtDate(o.date)||'—'} · Bullpen`}));
@@ -1134,13 +1135,14 @@ function reportCardHtml(o){
       <div><div class="rphd">Pitch breaks</div>${scatter}</div>
     </div>${havePP?'':`<div class="hint">Velocity &amp; break plots need per-pitch detail. Re-upload this PDF once on this version to capture it (older uploads only stored per-type averages). The table below is complete either way.</div>`}</div>`;
   const intersq=!!charting;
-  let cols=`<th>Pitch</th><th>CT</th><th>Pit%</th><th>Velo</th><th>Max</th><th>IVB</th><th>HB</th><th>VAA*</th><th>HAA*</th><th>Spin</th><th>Eff%</th><th>Zone%</th>`;
+  const measured=types.length&&types.every(t=>byType[t.code].vaa!=null);
+  let cols=`<th>Pitch</th><th>CT</th><th>Pit%</th><th>Velo</th><th>Max</th><th>IVB</th><th>HB</th><th>${measured?'VAA':'VAA*'}</th><th>${measured?'HAA':'HAA*'}</th><th>Spin</th><th>Eff%</th><th>Zone%</th>`;
   if(intersq)cols+=`<th>Strike%</th><th>Whiff%</th><th>CSW%</th>`;
   cols+=`<th>VRel</th><th>HRel</th><th>Ext</th>`;
   h+=`<div class="card"><h3>Stuff by pitch type <span class="tag tm">TM</span></h3><div class="tblscroll"><table><tr>${cols}</tr>`;
   types.forEach(t=>{const b=byType[t.code];const pts=loc[t.code]||[];
     const zone=pts.length?fmtPct(pct(pts.filter(inZone).length,pts.length)):'—';
-    const ang=estAngles(b,pts);
+    const ang=b.vaa!=null?{vaa:b.vaa,haa:b.haa}:estAngles(b,pts);
     let row=`<tr><td><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:${t.color};margin-right:6px"></span>${t.label}</td>
       <td>${b.n}</td><td>${fmtPct(pct(b.n,total))}</td><td>${g(b.veloAvg)}</td><td>${g(b.veloTop)}</td>
       <td>${g(b.ivb,'"')}</td><td>${g(b.hb,'"')}</td><td>${ang.vaa==null?'—':ang.vaa+'°'}</td><td>${ang.haa==null?'—':ang.haa+'°'}</td>
@@ -1148,9 +1150,9 @@ function reportCardHtml(o){
     if(intersq){const c=charting[t.code];row+=`<td>${c&&c.n?fmtPct(pct(c.strikes,c.n)):'—'}</td><td>${c&&c.n?fmtPct(pct(c.whiff,c.n)):'—'}</td><td>${c&&c.n?fmtPct(pct(c.csw,c.n)):'—'}</td>`;}
     row+=`<td>${ftInch(b.relH)}</td><td>${ftInch(b.relSide)}</td><td>${ftInch(b.ext)}</td></tr>`;
     h+=row;});
-  h+=`</table></div><div class="hint">Pit% = share of pitches. VRel/HRel = release height &amp; side, Ext = extension. Zone% from TrackMan locations.${intersq?' Strike%/Whiff%/CSW% come from your charting.':''} <b>VAA*/HAA*</b> are <b>estimated</b> from release point, velocity and average plate location — the portable TrackMan unit does not export measured approach angles, so treat them as directional, not exact.</div></div>`;
+  h+=`</table></div><div class="hint">Pit% = share of pitches. VRel/HRel = release height &amp; side, Ext = extension. Zone% from TrackMan locations.${intersq?' Strike%/Whiff%/CSW% come from your charting.':''}${measured?' VAA/HAA are measured by the stadium TrackMan unit.':' <b>VAA*/HAA*</b> are <b>estimated</b> from release point, velocity and average plate location — the portable TrackMan unit does not export measured approach angles, so treat them as directional, not exact.'}</div></div>`;
   // Pitch-location plot (catcher's view heatmaps), same as the Pitchers/Command tabs.
-  if(Object.keys(loc).some(k=>loc[k]&&loc[k].length))h+=tmHeatmapsHtml(loc);
+  if(Object.keys(loc).some(k=>loc[k]&&loc[k].length))h+=tmHeatmapsHtml(loc,o.exactLoc);
   return h;
 }
 function renderReports(){
@@ -1170,10 +1172,15 @@ function renderReports(){
     const pitches=[];outs.forEach(o=>(o.pitches||[]).forEach(p=>pitches.push(p)));
     const m=computeMetrics(gatherPAs([sess.id],pid),side);
     const charting={};for(const c in (m.byType||{})){const b=m.byType[c];charting[c]={n:b.n,strikes:b.strikes,whiff:b.whiff,csw:b.csw};}
-    h+=`<div class="card"><div class="flexb"><div><h2 style="margin:0">${esc(pitcherName(pid))}</h2><div class="muted">${esc(fmtDate(sess.date))} · ${esc(sess.label||'Intersquad')} · Intersquad · ${pitches.length||m.n} pitches${side?' · vs '+(side==='R'?'RHH':'LHH'):''}</div></div><span class="tag warn">Intersquad</span></div></div>`;
+    const env=sess.kind==='game'?'Game':'Intersquad';
+    h+=`<div class="card"><div class="flexb"><div><h2 style="margin:0">${esc(pitcherName(pid))}</h2><div class="muted">${esc(fmtDate(sess.date))} · ${esc(sess.label||env)} · ${env} · ${pitches.length||m.n} pitches${side?' · vs '+(side==='R'?'RHH':'LHH'):''}</div></div><span class="tag warn">${env}</span></div></div>`;
+    // game files keep a location on every pitch, so the plots can follow the batter-hand filter
+    const pp=pitcherPitches(sess,pid).filter(x=>x.tm&&x.tm.loc);
+    if(side&&pp.length){agg.loc={};pp.forEach(x=>{if(x.side!==side)return;const c=x.tm.code||x.type;(agg.loc[c]=agg.loc[c]||[]).push(x.tm.loc);});}
     if(!outs.length && !m.n){h+='<div class="card empty">No TrackMan or charting for this pitcher in this intersquad yet.</div>';}
     else if(!outs.length){h+='<div class="card empty">No TrackMan PDF saved for this pitcher in this intersquad yet — showing charting only.</div>'+metricsKpiHtml(m,'Charting')+usageTableHtml(m);}
-    else h+=reportCardHtml({byType:agg.byType,loc:agg.loc,pitches,charting});
+    else h+=reportCardHtml({byType:agg.byType,loc:agg.loc,pitches,charting,exactLoc:pp.length>0});
+    if(m.n)h+=countMixHtml(gatherPAs([sess.id],pid),side);
   }else if(key.slice(0,2)==='s:'){
     const sess=sessionById(key.slice(2));
     if(!sess){body.innerHTML='<div class="card empty">Session not found.</div>';return;}
@@ -1194,6 +1201,21 @@ function renderReports(){
   }
   body.innerHTML=h;
   paintAllHeat();
+}
+// What he threw in each count (from charting, so it covers intersquads and TrackMan game files alike).
+function countMixHtml(pas,side){
+  const rows={},tot={};const add=(k,t,x)=>{const r=rows[k]=rows[k]||{n:0,t:{},s:0};r.n++;r.t[t]=(r.t[t]||0)+1;if(x)r.s++;};
+  pas.forEach(pa=>pa.forEach(a=>{if(side&&a.side!==side)return;const t=a.type||'?',b=a.balls,s=a.strikes,k=b+'-'+s,x=a.result!=='Ball'&&a.result!=='HBP';tot[t]=(tot[t]||0)+1;
+    add(k,t,x);
+    if(k==='0-0')add('First pitch',t,x);else if(s>b&&k!=='3-2')add('Ahead',t,x);else if(b>s&&k!=='3-2')add('Behind',t,x);else if(b===s)add('Even',t,x);
+    if(s===2)add('Two strikes',t,x);}));
+  const types=PITCH_TYPES.filter(t=>tot[t.code]);if(!types.length)return '';
+  const order=['First pitch','Ahead','Even','Behind','Two strikes','0-0','0-1','0-2','1-0','1-1','1-2','2-0','2-1','2-2','3-0','3-1','3-2'];
+  let h=`<div class="card"><h3>Pitch mix by count${side?' · vs '+(side==='R'?'RHH':'LHH'):''}</h3><div class="tblscroll"><table><tr><th>Count</th><th>#</th>${types.map(t=>`<th><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${t.color};margin-right:4px"></span>${t.label}</th>`).join('')}<th>Strike%</th></tr>`;
+  order.forEach((k,i)=>{const r=rows[k];if(!r)return;const grp=i<5;
+    h+=`<tr${grp?' style="font-weight:700"':''}${i===5?' class="sep"':''}><td>${k}</td><td>${r.n}</td>${types.map(t=>{const v=r.t[t.code]||0;const p=Math.round(100*v/r.n);return `<td style="background:rgba(56,139,253,${(p/100*0.55).toFixed(2)})">${v?p+'%':'—'}</td>`;}).join('')}<td>${Math.round(100*r.s/r.n)}%</td></tr>`;});
+  h+=`</table></div><div class="hint">Share of pitches of each type in that count (row adds to 100%). Ahead = 0-1, 0-2, 1-2 · Even = 1-1, 2-2 · Behind = 1-0, 2-0, 3-0, 2-1, 3-1. Full count shows on its own row.</div></div>`;
+  return h;
 }
 function inZone(p){return p[0]>=0.2925&&p[0]<=0.7075&&p[1]>=0.25&&p[1]<=0.75;}
 function tmTableHtml(m, tmLoc){
@@ -1655,9 +1677,12 @@ document.getElementById('tmFiles').onchange=async(e)=>{
   try{e.target.value='';}catch(_){}
   // Start a fresh batch: drop cards that were already saved so new uploads aren't buried under old results.
   tmParsed=tmParsed.filter(x=>!x.applied);
-  if(!window.pdfjsLib){document.getElementById('tmStatus').innerHTML='<span style="color:var(--red2)">PDF library did not load. Open this page in a normal browser tab.</span>';return;}
   document.getElementById('tmStatus').textContent='Reading '+files.length+' file(s)…';
   for(const f of files){
+    if(/\.csv$/i.test(f.name)||f.type==='text/csv'){
+      try{tmParsed.push(parseTrackmanGame(await f.text(),f.name));}catch(err){tmParsed.push({file:f.name,error:String(err.message||err),pitches:[]});}
+      continue;}
+    if(!window.pdfjsLib){tmParsed.push({file:f.name,error:'PDF library did not load. Open this page in a normal browser tab.',pitches:[]});continue;}
     try{const res=await parsePDF(f);const parsed=parseTrackman(res.text);parsed.file=f.name;
       parsed.locByType=res.locByType||null;parsed._text=res.text;parsed.summary=parseTypeSummary(res.text);
       parsed.matchPid=parsed.name?(matchPitcher(parsed.name)||{}).id||null:null;
@@ -1669,7 +1694,7 @@ document.getElementById('tmFiles').onchange=async(e)=>{
     }catch(err){tmParsed.push({file:f.name,error:String(err),pitches:[]});}
   }
   const bad=tmParsed.filter(x=>x.error).length;
-  document.getElementById('tmStatus').innerHTML='<span style="color:var(--green)">Loaded '+files.length+' PDF'+(files.length>1?'s':'')+' — review each card below, then press Save on each.</span>'+(bad?' <span style="color:var(--red2)">'+bad+' could not be read.</span>':'');
+  document.getElementById('tmStatus').innerHTML='<span style="color:var(--green)">Loaded '+files.length+' file'+(files.length>1?'s':'')+' — review each card below, then press Save on each.</span>'+(bad?' <span style="color:var(--red2)">'+bad+' could not be read.</span>':'');
   renderTMResults();
   try{document.getElementById('tmResults').scrollIntoView({behavior:'smooth',block:'start'});}catch(_){}
 };
@@ -1679,6 +1704,7 @@ function renderTMResults(){
   let h='';
   tmParsed.forEach((p,idx)=>{
     if(p.error){h+=`<div class="card"><b>${esc(p.file)}</b><div class="muted">Could not read: ${esc(p.error)}</div></div>`;return;}
+    if(p.kind==='game'){h+=tmGameCardHtml(p,idx);return;}
     const isInter=(p._env||'bullpen')==='intersquad';
     const sessMatch=isInter&&p.matchSessId&&sessionById(p.matchSessId);
     const chartCount=(sessMatch&&p.matchPid)?pitcherPitches(sessMatch,p.matchPid).length:0;
@@ -1711,6 +1737,7 @@ function renderTMResults(){
   document.querySelectorAll('.tmPid').forEach(s=>s.onchange=e=>{tmParsed[+e.target.dataset.idx].matchPid=e.target.value;renderTMResults();});
   document.querySelectorAll('.tmDate').forEach(s=>s.onchange=e=>{tmParsed[+e.target.dataset.idx].date=e.target.value;});
   document.querySelectorAll('.tmEnv').forEach(s=>s.onchange=e=>{tmParsed[+e.target.dataset.idx]._env=e.target.value;renderTMResults();});
+  wireTMGameCards();
 }
 window.previewTM=function(idx){const p=tmParsed[idx];const el=document.getElementById('tmprev-'+idx);
   if(el.innerHTML){el.innerHTML='';return;}
@@ -1876,13 +1903,13 @@ function aggTM(outings){
   const acc={},loc={};
   outings.forEach(o=>{
     const bt=o.byType||{};
-    for(const c in bt){const b=bt[c];const a=acc[c]=acc[c]||{n:0,_v:0,veloTop:null,_s:0,_sn:0,_ivb:0,_in:0,_hb:0,_hn:0,_ext:0,_en:0,_rh:0,_rhn:0,_rs:0,_rsn:0,_eff:0,_effn:0};
+    for(const c in bt){const b=bt[c];const a=acc[c]=acc[c]||{n:0,_v:0,veloTop:null,_s:0,_sn:0,_ivb:0,_in:0,_hb:0,_hn:0,_ext:0,_en:0,_rh:0,_rhn:0,_rs:0,_rsn:0,_eff:0,_effn:0,_va:0,_van:0,_ha:0,_han:0};
       const n=b.n||0;a.n+=n;
       const add=(key,val,cntKey)=>{if(val!=null&&!isNaN(val)){a['_'+key]+=val*(n||1);a['_'+cntKey]+=(n||1);}};
       if(b.veloAvg!=null){a._v+=b.veloAvg*(n||1);}
       if(b.veloTop!=null){a.veloTop=(a.veloTop==null)?b.veloTop:Math.max(a.veloTop,b.veloTop);}
       add('s',b.spin,'sn');add('ivb',b.ivb,'in');add('hb',b.hb,'hn');add('ext',b.ext,'en');
-      add('rh',b.relH,'rhn');add('rs',b.relSide,'rsn');add('eff',b.spinEff,'effn');
+      add('rh',b.relH,'rhn');add('rs',b.relSide,'rsn');add('eff',b.spinEff,'effn');add('va',b.vaa,'van');add('ha',b.haa,'han');
     }
     const lb=o.loc||(o.sessionId&&(()=>{const s=sessionById(o.sessionId);return s&&s.tmLoc?s.tmLoc[o.pitcherId]:null;})());
     if(lb){for(const t in lb){if(lb[t]&&lb[t].length)(loc[t]=loc[t]||[]).push(...lb[t]);}}
@@ -1892,7 +1919,7 @@ function aggTM(outings){
     byType[c]={n:a.n,veloAvg:a.n?r(a._v/a.n,1):null,veloTop:a.veloTop,
       spin:a._sn?Math.round(a._s/a._sn):null,ivb:a._in?r(a._ivb/a._in,1):null,hb:a._hn?r(a._hb/a._hn,1):null,
       ext:a._en?r(a._ext/a._en,2):null,relH:a._rhn?r(a._rh/a._rhn,2):null,relSide:a._rsn?r(a._rs/a._rsn,2):null,
-      spinEff:a._effn?Math.round(a._eff/a._effn):null};}
+      spinEff:a._effn?Math.round(a._eff/a._effn):null,vaa:a._van?r(a._va/a._van,1):null,haa:a._han?r(a._ha/a._han,1):null};}
   return {byType,loc};
 }
 // TrackMan "stuff by pitch type" table straight from aggregated byType (works with no charting).
@@ -1935,6 +1962,162 @@ window.saveTM=function(idx){
     p.applied=true;save();renderTMResults();
     alert('Saved as a BULLPEN outing for '+pitcherName(p.matchPid)+'. It feeds every analysis tab (stuff, trends, command).');
   }
+};
+
+/* ---------------- TRACKMAN GAME FILE (stadium-unit CSV) ---------------- */
+// A stadium TrackMan export has every pitch with its count, batter, result and plate location, so one file
+// becomes a fully charted game (counts, PAs, results) plus per-pitcher TrackMan stuff and locations.
+const TM_TEAMS=(()=>{const o={};'ABI_WIL:Abilene Christian Wildcats|AIR_FOR:Air Force|AKR_ZIP:Akron Zips|ALA_ANM:Alabama A&M Bulldogs|ALA_CRI:Alabama Crimson Tide|ALA_HOR:Alabama State Hornets|ALA_LIO:North Alabama Lions|ALB_GRE:Albany Great Danes|ALC_BRA:Alcorn State Braves|APP_MOU:Appalachian State Mountaineers|ARI_SUN:Arizona State Sun Devils|ARI_WIL:Arizona Wildcats|ARK_LIO:Arkansas Pine Bluff Lions|ARK_RAZ:Arkansas Razorbacks|ARL_MAV:UT Arlington Mavericks|ARM_BLA:Army West Point Black Knights|ASU_RED:Arkansas State Red Wolves|AUB_TIG:Auburn Tigers|AUS_GOV:Austin Peay State Governors|AZU_PAC:Utah Tech Trailblazers|BAL_CAR:Ball State Cardinals|BAY_BEA:Baylor Bears|BEL_BRU:Belmont Bruins|BEL_KNI:Bellarmine Knights|BET_WIL:Bethune-Cookman Wildcats|BGS_FAL:Bowling Green State Falcons|BIN_BEA:Binghamton Bearcats|BOC_EAG:Boston College Eagles|BRA_BRA:Bradley Braves|BRO_BEA:Brown Bears|BRY_BUL:Bryant Bulldogs|BUC_BIS:Bucknell Bison|BUT_BUL:Butler Bulldogs|BYU_COU:BYU Cougars|CAL_AGO:UC Davis Aggies|CAL_ANT:UC Irvine Anteaters|CAL_BEA:California Golden Bears|CAL_FUL:Cal State Fullerton|CAL_HIG:UC Riverside Highlanders|CAL_LAN:California Baptist Lancers|CAL_MAT:Cal State Northridge Matadors|CAL_MUS:Cal Poly Mustangs|CAL_STA:Utah Valley Wolverines|CAM_CAM:Campbell Camels|CAN_GRI:Canisius Griffins|CCU_BLD:Central Connecticut State Blue Devils|CEN_BEA:Central Arkansas Bears|CEN_MIC:Central Michigan|CHA_BUC:Charleston Southern Buccaneers|CHA_FOR:Charlotte 49ers|CIN_BEA:Cincinnati Bearcats|CIT_BUL:Citadel Bulldogs|CLE_TIG:Clemson Tigers|COA_CHA:Coastal Carolina Chanticleers|COL_CHA:College of Charleston Cougars|COL_LION:Columbia Lions|COP_STA:Coppin State Eagles|COR_BRE:Cornell Big Red|CRE_BLU:Creighton Blue Jays|CSD_TRI:UC San Diego Tritons|CSU_BAK:CSU Bakersfield|DAL_PAT:Dallas Baptist Patriots|DAR_GRE:Dartmouth Big Green|DAV_WIL:Davidson Wildcats|DAY_FLY:Dayton Flyers |DEL_BLU:Delaware Blue Hens|DEL_HOR:Delaware State Hornets|DIL_UNI:Nicholls State Colonels|DIX_STE:Utah Tech Trailblazers|DUK_BLU:Duke Blue Devils|ECU_PIR:East Carolina Pirates |EIU_PAN:Eastern Illinois Panthers|EKU_COL:Eastern Kentucky Colonel|ELO_PHO:Elon Phoenix|EMU_EAG:Eastern Michigan Eagles |ETS_BUC:East Tennessee State Bucs|EVA_ACE:University of Evansville Purple Aces |FAI_STA:Fairfield Stags|FAU_OWL:Florida Atlantic Owls|FDU_KNI:Fairleigh Dickinson Knights|FGCU:Florida Gulf Coast Eagles|FLA_GAT:Florida Gators|FLO_PAN:Florida International Panthers|FLO_RAT:Florida A&M Rattlers|FLO_SEM:Florida State Seminoles|FOR_RAM:Fordham Rams|FRE_BUL:Fresno State Bulldogs|GAR_RUN:Gardner-Webb Runnin\' Bulldogs|GEO_BUL:Georgia Bulldogs|GEO_COL:George Washington Revolutionaries|GEO_EAG:Georgia Southern Eagles|GEO_HOY:Georgetown Hoyas|GEO_PAN:Georgia State Panthers|GEO_PAT:George Mason University Patriots|GIT_YEL:Georgia Tech Yellow Jackets|GON_BUL:Gonzaga Bulldogs|GRA_CAN:Grand Canyon Antelopes|GRA_CHR:Grace Christian|GRA_TIG:Grambling State Tigers|HAR_CRI:Harvard Crimson |HAW_WAR:Hawaii Rainbow Warriors|HBU_HUS:Houston Christian Huskies|HIG_PAN:High Point Panthers|HOF_PRI:Hofstra Pride|HOL_CRU:Holy Cross Crusaders|HOU_COU:U Houston Cougars|ILL_ILL:Illinois Fighting Illini|ILL_RED:Illinois State Redbirds|IND_SYC:Indiana State Sycamores|ION_GAE:Iona Gaels|IOW_HAW:Iowa Hawkeyes|IU:Indiana Hoosiers|IWC:Incarnate Word Cardinals|JAC_GAM:Jacksonville State Gamecocks|JAC_TIG:Jackson State Tigers|JMU_DUK:James Madison Dukes|JUD:Jacksonville Dolphins|KAN_JAY:Kansas Jayhawks|KAN_WIL:Kansas State Wildcats|KEN_OWL:Kennesaw State Owls|KEN_STA1:Kentucky State Thorobreds|KEN_WIL:Kentucky Wildcats|KS_GF:Kent State Golden Flashes|LAF_LEP:Lafayette Leopards|LAM_CAR:Lamar University Cardinals|LAS_EXS:La Salle Explorers|LEH_MOU:Lehigh University Mountain Hawks|LIB_FLA:Liberty Flames|LIN_UNI:Lindenwood University Lions|LIP_BIS:Lipscomb Bisons|LIT_TRO:Little Rock Trojans|LON_DIR:Long Beach State Dirtbags|LON_ISL22:Long Island University Sharks|LON_LAN:Longwood Lancers|LOR_DUH:Iowa Hawkeyes|LOU_BUL:Louisiana Tech Bulldogs|LOU_CAJ:Louisiana Lafayette Ragin Cajuns|LOU_CAR:Louisville Cardinals|LOY_LIO:Loyola Marymount Lions|LSU_ALE:LSU Alexandria|LSU_TIG:LSU Tigers|MAI_BLA:Maine Black Bears|MAN_JAS:Manhattan Jaspers|MAR_HAW:Maryland Eastern Shore Hawks|MAR_RED:Marist Red Foxes|MAR_TER:Maryland Terrapins|MAR_THU:Marshall Thundering Herd|MCN_COW:McNeese State Cowboys|MER_BEA:Mercer Bears|MER_COL1:Merrimack College Warriors|MER_UNI:Mercyhurst University Lakers|MEX_LOB:New Mexico Lobos|MIA_HUR:Miami Hurricanes|MIA_RED:Miami (Ohio) Redhawks|MIC_SPA:Michigan State Spartans|MIC_WOL:Michigan Wolverines|MIN_GOL:Minnesota Golden Gophers|MIS_BEA:Missouri State Bears|MIS_DEL:Mississippi Valley State Delta Devils|MIS_ST.:Lindenwood University Lions|MIZ_TIG:Missouri Tigers|MON_HAW:Monmouth Hawks|MOR_EAG:Morehead State Eagles |MOY_MOY:Le Moyne Dolphins|MSM_MTN:Mount Saint Mary\'s Mountaineers|MSU_BDG:Mississippi State Bulldogs|MT:Memphis Tigers|MTSU_BLU:Middle Tennessee State Blue Raiders|MUH_COL:Lehigh University Mountain Hawks|MUR_RAC:Murray State Racers|NAV_MID:Navy Midshipmen|NCA_BUL:UNC Asheville Bulldogs|NCB:Northern Colorado Bears|NEB:Nebraska Cornhuskers|NEV_WOL:Nevada Wolf Pack|NEW_HAV:New Haven University|NEW_PRI:New Orleans Privateers|NIA_EAG:Niagara University Purple Eagles|NIC_COL:Nicholls State Colonels|NIU_HUS:Northern Illinois Huskies|NJI_HIG:NJIT Highlanders|NMS_AGG:New Mexico State Aggies|NOF_OSP:North Florida Osprey|NOK_NOR:Northern Kentucky Norse|NOR_AGG:North Carolina A&T Aggies|NOR_BIS:North Dakota State Bison|NOR_CAT:Northwestern Wildcats|NOR_DEM:Northwestern State Demons|NOR_HUS:Northeastern Huskies|NOR_SPA:Norfolk State Spartans|NOR_TAR:North Carolina Tar Heels|NOR_WOL:North Carolina State Wolfpack|NOT_IRI:Notre Dame Fighting Irish|OAK_GOL:Oakland Golden Grizzlies|OHI_BOB:Ohio Bobcats|OKL_COW:Oklahoma State Cowboys|OKL_SOO:Oklahoma Sooners|OLD_MON:Old Dominion Monarchs|OLE_REB:Ole Miss Rebels|ORA_GOL:Oral Roberts Golden Eagles|ORE_BEA:Oregon State Beavers|ORE_DUC:Oregon Ducks|OSU_BUC:Ohio State University|PAC_TIG:Pacific Tigers|PEN_NIT:Penn State Nittany Lions|PEN_QUA:Penn Quakers|PEP_WAV:Pepperdine Waves|PIT_PAN:Pitt Panthers|POR_PIL:Portland Pilots|PRA_PAN:Prairie View A&M Panthers|PRE_BLH:Presbyterian Blue Hose|PRI_TIG:Princeton Tigers|PUR_BOI:Purdue Boilermakers|QUI_BOB:Quinnipiac Bobcats|QUN_RYL:Queens University Charlotte Royals|RAD_HIG:Radford Highlanders|RHO_RAM:Rhode Island Rams|RIC_OWL:Rice Owls|RIC_SPI:Richmond Spiders|RID_BRO:Rider Broncs|ROC_CHR:Rochester Christian University|ROO_UNI:Illinois Fighting Illini|RUT_SCA:Rutgers Scarlet Knights|SAC_HOR:Sacramento State Hornets|SAC_PIO:Sacred Heart Pioneers|SAL_JAG:South Alabama Jaguars|SAM_BEA:Sam Houston State Bearkats|SAM_BUL:Samford Bulldogs|SAN_AZT:San Diego State Aztecs|SAN_BRO:Santa Clara Broncos|SAN_DON:San Francisco Dons|SAN_GAU:UC Santa Barbara Gauchos|SAN_SPA:San Jose State Spartans|SAN_TOR:San Diego Toreros|SBU_SEA:Stony Brook Seawolves|SEA_RED:Seattle University Redhawks|SET_PIR:Seton Hall Pirates|SIE_SAI:Siena Saints|SIU_SAL:Southern Illinois Salukis|SLU_BILL:Saint Louis Billikens|SMU_SAI:Saint Martin\'s University Saints|SOU_BAP1:Southeastern Baptist|SOU_COU:Southern Illinois University Edwardsville|SOU_GAM:South Carolina Gamecocks|SOU_GOL:Southern Mississippi Golden Eagles|SOU_IND16:Southern Indiana Screaming Eagles|SOU_JAC:South Dakota State Jackrabbits|SOU_JAG:Southern University Jaguars|SOU_LIO:Southeastern Louisiana Lions|SOU_RED:Southeast Missouri State Redhawks|SOU_TRO:USC Trojans|SPU_PEA:Saint Peter\'s Peacocks|STA_CAR:Stanford Cardinals|STB_BON:St. Bonaventure Bonnies|STE_HAT:Stetson Hatters|STE_LUM:Stephen F. Austin Lumberjacks|STJ_HAW:St. Joseph\'s Hawks|STJ_RED:St. John\'s Red Storm|STM_GAE:St. Mary\'s Gaels|STO_COL:Stonehill College Skyhawks|TAR_TEX:Tarleton State Texans|TCU_HFG:TCU Horned Frogs|TEN_TEC:Tennessee Technological University|TEN_VOL:Tennessee Volunteers|TEX_AGG:Texas A&M Aggies|TEX_BOB:Texas State Bobcats|TEX_ISL:Texas A&M Corpus Christi Islanders|TEX_LON:Texas Longhorns|TEX_RAI:Texas Tech Red Raiders|TEX_TIG:Texas Southern Tigers|THO_M:St. Thomas Tommies|TOL_ROC:Toledo Rockets|TOW_TIG:Towson Tigers|TRO_TRJ:Troy Trojans|TUL_GRE:Tulane Green Wave|TestK:Trackman Team K|UAB_BLA:UAB Blazers|UCF_KNI:UCF Knights|UCLA:UCLA Bruins|UCO_HUS:UConn Huskies|UIC_FLA:UIC Flames|ULM_WAR:Louisiana Monroe Warhawks|UMASS_RIV:UMass Lowell River Hawks|UMA_AMH:UMass Amherst Minutemen|UMBC_RET:University of Maryland, Baltimore County Retrievers |UNC_SEA:UNC Wilmington Seahawks|UNC_SPA:UNC Greensboro Spartans|UNI_BRI:Seattle University Redhawks|UNI_THE2:University of The Southwest|UNI_WES:University of West Georgia Wolves|UNI_WIS:University of Wisconsin-Platteville Pioneers|UNL_REB:UNLV Rebels|UNO_MAV:Nebraska Omaha Mavericks|USC_UPS:USC Upstate Spartans|USF_BUL:USF Bulls|UTA_UTE:Utah Utes|UTA_WOL:Utah Valley Wolverines|UTM_SKY:Tennessee-Martin Skyhawks|UTR_VAQ:Texas-Rio Grande Vaqueros|UTS_ROA:UTSA Roadrunners|UWM_PAN:UW Milwaukee Panthers|VAL_CRU:Valparaiso|VAN_COM:Vanderbilt Commodores|VCU_RAM:VCU Rams|VIL_WIL:Villanova Wildcats|VIR_CAV:Virginia Cavaliers|VIR_KEY:VMI Keydets|VIR_TEC:Virginia Tech Hokies|WAG_SEA:Wagner Seahawks|WAK_DEA:Wake Forest Demon Deacons|WAR_COL:Wartburg College Knights|WAS_COU:Washington State Cougars|WAS_HUS:Washington Huskies|WAS_UNI:Washburn University Ichabods|WCC:Western Carolina Catamounts|WES_CHE5:St. Joseph\'s Hawks|WES_HIL:Western Kentucky Hilltoppers|WES_MOU:West Virginia Mountaineers|WES_UNI:CSU Bakersfield|WES_VIR4:West Virginia Wesleyan College Bobcats|WIC_SHO:Wichita State Shockers|WIN_EAG:Winthrop Eagles|WIU_LEA:Western Illinois Leatherneck|WMI_BRO:Western Michigan Broncos|WM_TRI:William & Mary Tribe|WOF_TER:Wofford Terriers|WRI_RAI:Wright State Raiders|XAV_LOU:Nicholls State Colonels|XAV_MUS:Xavier Musketeers|YAL_BUL:Yale Bulldogs|YSU_PEN:Youngstown State Penguins'.split('|').forEach(s=>{const i=s.indexOf(':');o[s.slice(0,i)]=s.slice(i+1);});return o;})();
+function tmTeamName(c){return TM_TEAMS[c]||c||'?';}
+function parseCSV(text){
+  const rows=[];let row=[],f='',q=false;
+  for(let i=0;i<text.length;i++){const ch=text[i];
+    if(q){if(ch==='"'){if(text[i+1]==='"'){f+='"';i++;}else q=false;}else f+=ch;}
+    else if(ch==='"')q=true;else if(ch===','){row.push(f);f='';}
+    else if(ch==='\n'){row.push(f);rows.push(row);row=[];f='';}else if(ch!=='\r')f+=ch;}
+  if(f!==''||row.length){row.push(f);rows.push(row);}
+  const head=(rows.shift()||[]).map(h=>h.replace(/^﻿/,'').trim());
+  return rows.filter(r=>r.length>1).map(r=>{const o={};head.forEach((h,i)=>{o[h]=r[i]==null?'':r[i].trim();});return o;});
+}
+const TM_PT={Fastball:'FB',FourSeamFastBall:'FB','Four-Seam':'FB',Sinker:'SI',TwoSeamFastBall:'SI',Cutter:'CT',Slider:'SL',
+  Sweeper:'SW',Curveball:'CB',CurveBall:'CB',Slurve:'SL',ChangeUp:'CH',Changeup:'CH',Splitter:'SP'};
+function tmNum(v){if(v==null||v===''||v==='Undefined')return null;const x=parseFloat(v);return isNaN(x)?null:x;}
+function tmRowCode(r){return TM_PT[r.TaggedPitchType]||TM_PT[r.AutoPitchType]||null;}
+function tmRowResult(r){const c=r.PitchCall||'';
+  if(/^Ball/.test(c))return 'Ball';if(c==='StrikeCalled')return 'CalledStrike';if(c==='StrikeSwinging'||c==='FoulTip')return 'Whiff';
+  if(/^Foul/.test(c))return 'Foul';if(c==='HitByPitch')return 'HBP';if(c==='InPlay')return 'InPlay';return null;}
+function tmRowBip(r){const p=r.PlayResult,h=r.TaggedHitType,o=+r.OutsOnPlay||0;
+  if(p==='Single')return '1B';if(p==='Double')return '2B';if(p==='Triple')return '3B';if(p==='HomeRun')return 'HR';
+  if(p==='Error')return 'ROE';if(p==='FieldersChoice')return 'FC';if(p==='Sacrifice')return h==='Bunt'?'SAC':'SF';
+  if(o>=3)return 'TP';if(o===2)return 'DP';return h==='FlyBall'?'FO':h==='LineDrive'?'LO':h==='Popup'?'PO':'GO';}
+function tmDateISO(s){if(!s)return null;let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);if(m)return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);if(m){const y=m[3].length===2?'20'+m[3]:m[3];return y+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0');}return null;}
+// "Last, First" (TrackMan) -> roster pitcher. Falls back to last name + first-name prefix, so
+// "Shea, Matt" finds Matthew Shea, "Soule-Parent, Parker" finds Parker Soule and "Rogan, PJ" finds Pj Rogan.
+function matchPitcherTM(name){
+  const hit=matchPitcher(name);if(hit)return hit;
+  const parts=(name||'').split(',');if(parts.length<2)return null;
+  const last=normName(parts[0]),first=normName(parts.slice(1).join(' '));if(!last)return null;
+  const c=DB.roster.filter(p=>{const w=(p.name||'').trim().split(/\s+/);if(w.length<2)return false;
+    const rl=normName(w.slice(1).join('')),rf=normName(w[0]);
+    const lastOk=rl===last||last.startsWith(rl)||rl.startsWith(last)||parts[0].toLowerCase().split(/[-\s]/).map(normName).includes(rl);
+    const firstOk=!first||!rf||rf.startsWith(first)||first.startsWith(rf)||rf[0]===first[0];
+    return lastOk&&firstOk;});
+  return c.length===1?c[0]:null;
+}
+function tmFirstLast(name){const p=(name||'').split(',');return p.length<2?name:(p.slice(1).join(' ').trim()+' '+p[0].trim()).trim();}
+function parseTrackmanGame(text,file){
+  const rows=parseCSV(text);
+  if(!rows.length||!('PitcherTeam' in rows[0])||!('PlateLocSide' in rows[0])||!('PitchCall' in rows[0]))throw new Error('This CSV is not a TrackMan game export (missing PitcherTeam / PitchCall / PlateLocSide columns).');
+  rows.sort((a,b)=>(+a.PitchNo||0)-(+b.PitchNo||0));
+  const teams=[...new Set(rows.map(r=>r.PitcherTeam).filter(Boolean))];
+  const names=t=>[...new Set(rows.filter(r=>r.PitcherTeam===t).map(r=>r.Pitcher))];
+  const score=t=>names(t).filter(n=>matchPitcherTM(n)).length;
+  const ours=teams.slice().sort((a,b)=>score(b)-score(a)||((b==='SAC_PIO')-(a==='SAC_PIO')))[0];
+  const r0=rows[0],opp=teams.find(t=>t!==ours)||(r0.HomeTeam===ours?r0.AwayTeam:r0.HomeTeam);
+  return {kind:'game',file,rows,teams,ours,date:tmDateISO(r0.Date),home:r0.HomeTeam,away:r0.AwayTeam,
+    gameUID:r0.GameUID||r0.GameID||file,label:'Game vs '+tmTeamName(opp),map:{},applied:false,pitches:[]};
+}
+function tmGamePitchers(g){const out=[];const seen={};
+  g.rows.forEach(r=>{if(r.PitcherTeam!==g.ours)return;const n=r.Pitcher;if(!seen[n]){seen[n]={name:n,n:0,throws:r.PitcherThrows};out.push(seen[n]);}seen[n].n++;});
+  out.forEach(p=>{if(!(p.name in g.map)){const m=matchPitcherTM(p.name);g.map[p.name]=m?m.id:'';}});
+  return out;
+}
+function tmGameCardHtml(g,idx){
+  const ps=tmGamePitchers(g),n=ps.reduce((a,p)=>a+p.n,0);
+  const opts=sel=>'<option value="">— skip —</option>'+DB.roster.map(r=>`<option value="${r.id}" ${r.id===sel?'selected':''}>${esc(r.name)}</option>`).join('')+`<option value="__new" ${sel==='__new'?'selected':''}>+ add to roster</option>`;
+  let h=`<div class="card"><div class="flexb"><b>TrackMan game file</b><span class="pill">${fmtDate(g.date)||'no date'}</span>
+      <span class="pill">${esc(tmTeamName(g.away))} @ ${esc(tmTeamName(g.home))}</span><span class="pill">${n} pitches by ${ps.length} of our pitchers</span>
+      ${g.applied?'<span class="tag ok">saved ✓</span>':''}<div class="spacer"></div><span class="muted">${esc(g.file)}</span></div>
+    <div class="row" style="margin-top:10px">
+      <div><label class="fld">Our team</label><select data-idx="${idx}" class="tmgTeam">${g.teams.map(t=>`<option value="${t}" ${t===g.ours?'selected':''}>${esc(tmTeamName(t))}</option>`).join('')}</select></div>
+      <div style="flex:2"><label class="fld">Report name</label><input type="text" data-idx="${idx}" class="tmgLabel" value="${esc(g.label)}"></div>
+      <div><label class="fld">Date</label><input type="date" data-idx="${idx}" class="tmgDate" value="${g.date||''}"></div></div>
+    <div class="tblscroll" style="margin-top:10px"><table><tr><th>TrackMan name</th><th>Throws</th><th>Pitches</th><th>Maps to pitcher</th></tr>`;
+  ps.forEach(p=>{h+=`<tr><td>${esc(p.name)}</td><td>${esc((p.throws||'')[0]||'')}</td><td>${p.n}</td><td><select data-idx="${idx}" data-name="${esc(p.name)}" class="tmgMap" style="min-width:180px">${opts(g.map[p.name])}</select></td></tr>`;});
+  h+=`</table></div><div class="hint">Saved as a charted game: every pitch keeps its count, batter hand, result and plate location, so Reports, the Pitcher Log, Command and Optimal Aim all pick it up. Each pitcher also gets this game's TrackMan stuff and locations. Saving the same file again replaces it instead of doubling it.</div>
+    <div class="flexb" style="margin-top:10px"><button class="btn red sm" onclick="saveTMGame(${idx})">${g.applied?'Re-save game':'Save game'}</button>
+      <button class="btn ghost sm" onclick="dropTM(${idx})">Remove</button></div></div>`;
+  return h;
+}
+function wireTMGameCards(){
+  document.querySelectorAll('.tmgTeam').forEach(s=>s.onchange=e=>{const g=tmParsed[+e.target.dataset.idx];g.ours=e.target.value;g.map={};
+    const opp=g.teams.find(t=>t!==g.ours);g.label='Game vs '+tmTeamName(opp);renderTMResults();});
+  document.querySelectorAll('.tmgMap').forEach(s=>s.onchange=e=>{tmParsed[+e.target.dataset.idx].map[e.target.dataset.name]=e.target.value;});
+  document.querySelectorAll('.tmgLabel').forEach(s=>s.oninput=e=>{tmParsed[+e.target.dataset.idx].label=e.target.value;});
+  document.querySelectorAll('.tmgDate').forEach(s=>s.onchange=e=>{tmParsed[+e.target.dataset.idx].date=e.target.value;});
+}
+// Build the charted game. Only OUR pitchers' half-innings are charted (that is what every tab analyses).
+function buildTMGame(g){
+  const rows=g.rows.filter(r=>r.PitcherTeam===g.ours);const log=[];let k=0;
+  const pidOf=n=>g.map[n]||('tm:'+n);
+  let half=null,paKey=null,b=0,s=0,inPA=false,bases=[0,0,0],hOuts=0;
+  rows.forEach(r=>{
+    const h=r.Inning+'|'+r['Top/Bottom'];
+    // the replay starts a new inning by itself after 3 outs; only mark one when a half ended short of that
+    if(half!==null&&h!==half){if(hOuts<3)log.push({id:'tmi'+(k++)+g.uid,kind:'inn'});inPA=false;b=0;s=0;bases=[0,0,0];hOuts=0;}
+    half=h;
+    const res=tmRowResult(r);if(!res)return;
+    const cb=+r.Balls||0,cs=+r.Strikes||0,key=h+'|'+r.PAofInning;
+    // a new batter TrackMan says started while our replay still had a live count (PA ended without a pitch)
+    if(inPA&&(key!==paKey||(cb===0&&cs===0&&(b||s)))){log.push({id:'tmn'+(k++)+g.uid,kind:'nb'});b=0;s=0;}
+    paKey=key;
+    const code=tmRowCode(r),side=(r.BatterSide||'').charAt(0)==='L'?'L':'R';
+    const px=tmNum(r.PlateLocSide),pz=tmNum(r.PlateLocHeight);
+    const cl=v=>Math.max(0,Math.min(1,Math.round(v*1000)/1000));
+    const loc=(px!=null&&pz!=null)?[cl((px+2)/4),cl((4.5-pz)/4)]:null; // stored like the PDF plot: pitcher's view, 0 = top
+    const r1=v=>v==null?null:Math.round(v*10)/10,r2=v=>v==null?null:Math.round(v*100)/100;
+    const tm={no:+r.PitchNo||null,code,velo:r1(tmNum(r.RelSpeed)),spin:tmNum(r.SpinRate)==null?null:Math.round(tmNum(r.SpinRate)),
+      tiltMin:r.Tilt?clockToMin(r.Tilt):null,ivb:r1(tmNum(r.InducedVertBreak)),hb:r1(tmNum(r.HorzBreak)),ext:r2(tmNum(r.Extension)),
+      relH:r2(tmNum(r.RelHeight)),relSide:r2(tmNum(r.RelSide)),spinEff:null,vaa:r1(tmNum(r.VertApprAngle)),haa:r1(tmNum(r.HorzApprAngle)),loc};
+    const p={id:'tmp'+(r.PitchUID||(g.uid+'-'+r.PitchNo)),kind:'p',pitcherId:pidOf(r.Pitcher),type:code||'FB',result:res,side,velo:tm.velo,tm};
+    if(res==='InPlay')p.bip=tmRowBip(r);
+    const st=countStep(b,s,res);
+    if(st.term){
+      // use what really happened (outs and runs on the play) instead of guessing from the hit type
+      const runs=+r.RunsScored||0,eng=resolveTerminal(st.term,p.bip,bases.map(x=>x?{earned:true}:null));
+      let nb=eng.bases.map(x=>x?1:0);const outs=st.term==='K'?1:st.term==='InPlay'?(+r.OutsOnPlay||0):0;
+      for(let extra=outs-eng.out;extra>0;extra--){const i=nb.indexOf(1);if(i>=0)nb[i]=0;}
+      for(let extra=runs-eng.runs;extra>0;extra--){const i=nb.lastIndexOf(1);if(i>=0)nb[i]=0;}
+      p.res={out:outs,runs,er:p.bip==='ROE'?0:runs,bases:nb,reach:eng.reach};
+      bases=nb;b=0;s=0;inPA=false;hOuts+=outs;
+    }else{b=st.balls;s=st.strikes;inPA=true;}
+    log.push(p);
+    // outs or runs that happened on a non-final pitch (caught stealing, pickoff, wild pitch, steal of home)
+    if(!st.term&&((+r.OutsOnPlay||0)>0||(+r.RunsScored||0)>0)){const o=+r.OutsOnPlay||0,ru=+r.RunsScored||0;
+      const nb=bases.slice();for(let i=0;i<o;i++){const j=nb.indexOf(1);if(j>=0)nb[j]=0;}for(let i=0;i<ru;i++){const j=nb.lastIndexOf(1);if(j>=0)nb[j]=0;}
+      log.push({id:'tme'+(k++)+g.uid,kind:'ev',ev:o?'CS':'WP',pitcherId:p.pitcherId,res:{out:o,runs:ru,er:ru,bases:nb}});bases=nb;hOuts+=o;}
+  });
+  return log;
+}
+window.saveTMGame=function(idx){
+  const g=tmParsed[idx];
+  document.querySelectorAll('.tmgMap[data-idx="'+idx+'"]').forEach(s=>{g.map[s.dataset.name]=s.value;});
+  const lab=document.querySelector('.tmgLabel[data-idx="'+idx+'"]');if(lab)g.label=lab.value.trim()||g.label;
+  const dt=document.querySelector('.tmgDate[data-idx="'+idx+'"]');if(dt&&dt.value)g.date=dt.value;
+  const ps=tmGamePitchers(g);
+  if(!ps.some(p=>g.map[p.name])){alert('Map at least one pitcher to your roster first.');return;}
+  ps.forEach(p=>{if(g.map[p.name]==='__new'){const np={id:uid(),name:tmFirstLast(p.name)};if((p.throws||'')[0]==='L'||(p.throws||'')[0]==='R')np.hand=p.throws[0];DB.roster.push(np);g.map[p.name]=np.id;}});
+  g.uid=String(g.gameUID||g.file).replace(/[^A-Za-z0-9]/g,'').slice(-20)||uid();
+  let sid='tmg'+g.uid;if((DB.tomb.sessions||[]).includes(sid))sid=sid+'-'+uid();
+  let sess=sessionById(sid);
+  if(!sess){sess={id:sid,date:g.date,label:g.label,pitches:[],kind:'game',src:'trackman'};DB.sessions.push(sess);}
+  sess.date=g.date;sess.label=g.label;sess.kind='game';sess.pitches=buildTMGame(g);sess.tmLoc={};
+  // per-pitcher TrackMan outing tied to this game: stuff by pitch type + locations
+  const saved=[];
+  ps.forEach(p=>{const pid=g.map[p.name];if(!pid)return;
+    const mine=sess.pitches.filter(x=>x.kind==='p'&&x.pitcherId===pid&&x.tm);
+    const by={},loc={},per=[];
+    mine.forEach(x=>{const t=x.tm,c=t.code;if(!c)return;per.push({code:c,velo:t.velo,spin:t.spin,ivb:t.ivb,hb:t.hb,ext:t.ext,relH:t.relH,relSide:t.relSide,spinEff:null,vaa:t.vaa,haa:t.haa});
+      const a=by[c]=by[c]||[];a.push(t);if(t.loc)(loc[c]=loc[c]||[]).push(t.loc);});
+    const avg=(a,f,d)=>{const v=a.map(f).filter(x=>x!=null&&!isNaN(x));if(!v.length)return null;const m=v.reduce((s,x)=>s+x,0)/v.length;return Math.round(m*10**d)/10**d;};
+    const byType={};for(const c in by){const a=by[c];const vs=a.map(t=>t.velo).filter(v=>v!=null);
+      byType[c]={n:a.length,veloAvg:avg(a,t=>t.velo,1),veloTop:vs.length?Math.max(...vs):null,spin:avg(a,t=>t.spin,0),ivb:avg(a,t=>t.ivb,1),hb:avg(a,t=>t.hb,1),
+        ext:avg(a,t=>t.ext,2),relH:avg(a,t=>t.relH,2),relSide:avg(a,t=>t.relSide,2),spinEff:null,vaa:avg(a,t=>t.vaa,1),haa:avg(a,t=>t.haa,1)};}
+    sess.tmLoc[pid]=loc;
+    saveOuting(pid,p.name,g.date,'intersquad',byType,sess.id,loc,per,g.file);saved.push(pitcherName(pid)+' ('+mine.length+')');});
+  g.applied=true;save();refreshSessionPickers();renderTMResults();
+  alert('Saved "'+g.label+'" — '+saved.length+' pitcher(s): '+saved.join(', ')+'.\nFind it in Reports: pick the pitcher, then this game.');
 };
 
 /* ---------------- TRENDS ---------------- */
