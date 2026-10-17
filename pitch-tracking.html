@@ -376,7 +376,7 @@
       <div><label class="fld">Style</label><select id="amStyle"><option value="dark">Dark</option><option value="light">Light (saves ink)</option></select></div>
     </div>
     <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap"><button class="btn red" id="amPrint">Print</button><button class="btn" id="amDownload">Download image</button></div>
-    <div class="hint">The glove marks where to set the target so each pitch gets its best result once the pitcher's real misses are applied. Every <b>intersquad</b> pitch is read as a miss from a middle-middle target (bullpens are ignored). Run values are measured from 1.84M 2026 D1 pitches for each pitch type, pitcher hand, batter hand and count: how often hitters swing, miss, take a called strike, get hit, and what contact is worth at every spot. Each pitch is then adjusted for his <b>Stuff+</b>, estimated from all his TrackMan outings with a rebuild of the main site's grades. Batter hand and count change the run values; his misses are pooled across them because TrackMan's report does not tie a location to a specific pitch. Throws is read from TrackMan — change it here if it is wrong.</div>
+    <div class="hint">The glove marks where to set the target so each pitch gets its best result once the pitcher's real misses are applied. Every <b>intersquad</b> and <b>game</b> pitch is read as a miss from a middle-middle target (bullpens and game 0-2 pitches are ignored). Run values are measured from 1.84M 2026 D1 pitches for each pitch type, pitcher hand, batter hand and count: how often hitters swing, miss, take a called strike, get hit, and what contact is worth at every spot. Each pitch is then adjusted for his <b>Stuff+</b>, estimated from all his TrackMan outings with a rebuild of the main site's grades. Batter hand and count change the run values; his misses are pooled across them because TrackMan's report does not tie a location to a specific pitch. Throws is read from TrackMan — change it here if it is wrong.</div>
   </div>
   <div id="amBody"></div>
 </section>
@@ -2039,7 +2039,7 @@ function tmGameCardHtml(g,idx){
       <div><label class="fld">Date</label><input type="date" data-idx="${idx}" class="tmgDate" value="${g.date||''}"></div></div>
     <div class="tblscroll" style="margin-top:10px"><table><tr><th>TrackMan name</th><th>Throws</th><th>Pitches</th><th>Maps to pitcher</th></tr>`;
   ps.forEach(p=>{h+=`<tr><td>${esc(p.name)}</td><td>${esc((p.throws||'')[0]||'')}</td><td>${p.n}</td><td><select data-idx="${idx}" data-name="${esc(p.name)}" class="tmgMap" style="min-width:180px">${opts(g.map[p.name])}</select></td></tr>`;});
-  h+=`</table></div><div class="hint">Saved as a charted game: every pitch keeps its count, batter hand, result and plate location, so Reports, the Leaderboard, the Pitcher Log and Command all pick it up under the <b>Game</b> environment (Optimal Aim stays intersquad-only, since catchers move the target in games). Each pitcher also gets this game's TrackMan stuff and locations. Saving the same file again replaces it instead of doubling it.</div>
+  h+=`</table></div><div class="hint">Saved as a charted game: every pitch keeps its count, batter hand, result and plate location, so Reports, the Leaderboard, the Pitcher Log and Command all pick it up under the <b>Game</b> environment (Optimal Aim uses the game too, minus 0-2 pitches). Each pitcher also gets this game's TrackMan stuff and locations. Saving the same file again replaces it instead of doubling it.</div>
     <div class="flexb" style="margin-top:10px"><button class="btn red sm" onclick="saveTMGame(${idx})">${g.applied?'Re-save game':'Save game'}</button>
       <button class="btn ghost sm" onclick="dropTM(${idx})">Remove</button></div></div>`;
   return h;
@@ -2330,7 +2330,15 @@ function aimAt(S,x,y){
 const aimInZone=(x,y)=>(x>=-0.83&&x<=0.83&&y>=1.5&&y<=3.5)?1:0;
 // Intersquad TrackMan locations as miss offsets (ft, catcher's view) from a middle-middle target.
 // Stored locations are in TrackMan's pitcher's-view plot, so x is mirrored here.
-function aimOffsets(pid,code){return ((outingsLoc(pid,'intersquad')[code])||[]).map(p=>[2-p[0]*4,2-p[1]*4]);}
+// Command sample for Optimal Aim: every intersquad location, plus game locations except 0-2 pitches (waste pitches aren't aimed middle-middle).
+function aimLoc(pid){
+  const out=outingsLoc(pid,'intersquad');
+  DB.sessions.forEach(s=>{if(sessEnv(s)!=='game'||!(s.pitches||[]).some(x=>x.pitcherId===pid))return;
+    replaySession(s).annotated.forEach(a=>{if(a.pitcherId!==pid||!a.type||!a.tm||!a.tm.loc)return;if(a.balls===0&&a.strikes===2)return;
+      (out[a.type]=out[a.type]||[]).push(a.tm.loc);});});
+  return out;
+}
+function aimOffsets(pid,code){return ((aimLoc(pid)[code])||[]).map(p=>[2-p[0]*4,2-p[1]*4]);}
 // A pitcher's offsets for one pitch plus their average (his current centre for that pitch).
 function aimOwn(pid,code){const o=aimOffsets(pid,code);let mx=0,my=0;o.forEach(q=>{mx+=q[0];my+=q[1];});if(o.length){mx/=o.length;my/=o.length;}return {o,mx,my};}
 // Miss kernel. 'spread' (default): the scatter of his pitches around his OWN average, because in a live at-bat the
@@ -2371,9 +2379,9 @@ function aimSolve(K,RV,obj){
   const now=K.avg||[0,2.5];
   return {E,ref,max:mx||1,bx,by,bv:at(bx,by,val),now,nowVal:at(now[0],now[1],val),zoneBest:at(bx,by,aimInZone),zoneNow:at(now[0],now[1],aimInZone)};
 }
-function aimPitchers(){return DB.roster.filter(p=>{const l=outingsLoc(p.id,'intersquad');return PITCH_TYPES.some(t=>(l[t.code]||[]).length>=AIM_MIN);});}
+function aimPitchers(){return DB.roster.filter(p=>{const l=aimLoc(p.id);return PITCH_TYPES.some(t=>(l[t.code]||[]).length>=AIM_MIN);});}
 function aimModel(){
-  const pid=AIM.pid,ph=pitcherHand(pid),loc=outingsLoc(pid,'intersquad');
+  const pid=AIM.pid,ph=pitcherHand(pid),loc=aimLoc(pid);
   const types=PITCH_TYPES.filter(t=>(loc[t.code]||[]).length>=AIM_MIN);
   const kern={};types.forEach(t=>kern[t.code]=aimKernel(pid,t.code,ph,AIM.miss));
   const stuff=AIM.stuff==='off'?{}:pitcherStuff(pid);
@@ -2446,7 +2454,7 @@ function aimDrawSheet(model,style,scale,r0,r1,pageTxt){
   // header
   txt(name,L.PAD,34,{w:'800',sz:24});
   txt('OPTIMAL AIM',sz.W-L.PAD,30,{w:'800',sz:13,al:'right',ls:2.5,col:th.dim});
-  txt((model.ph==='L'?'LHP':'RHP')+'  ·  '+sideTxt+'  ·  '+cntTxt+'  ·  '+(AIM.obj==='zone'?'most strikes':'best run value')+'  ·  '+model.total+' intersquad pitches',L.PAD,54,{sz:12,col:th.dim});
+  txt((model.ph==='L'?'LHP':'RHP')+'  ·  '+sideTxt+'  ·  '+cntTxt+'  ·  '+(AIM.obj==='zone'?'most strikes':'best run value')+'  ·  '+model.total+' intersquad + game pitches',L.PAD,54,{sz:12,col:th.dim});
   if(pageTxt)txt(pageTxt,sz.W-L.PAD,54,{sz:11,col:th.dim,al:'right'});
   // column heads
   const px0=sz.x0+L.LAB;
@@ -2498,8 +2506,8 @@ function aimDrawSheet(model,style,scale,r0,r1,pageTxt){
   // notes
   const first=(name.split(' ')[0]||'his');
   const notes=['Catcher’s view: left edge is the third-base side. Dotted box = strike zone. Arrows under each panel give the glove’s distance from middle-middle; % zone is the share of his pitches that land in the zone from that target.',
-    (AIM.miss!=='mid'?'Command is the scatter of '+first+'’s intersquad TrackMan locations around his own average for each pitch (no bullpens), pooled over all counts and batters; the glove is where the centre of that scatter should sit. '
-      :'Command is '+first+'’s intersquad TrackMan locations (no bullpens) read as misses from a middle-middle target, pooled over all counts and batters. ')
+    (AIM.miss!=='mid'?'Command is the scatter of '+first+'’s intersquad and game TrackMan locations (game 0-2 pitches left out) around his own average for each pitch (no bullpens), pooled over all counts and batters; the glove is where the centre of that scatter should sit. '
+      :'Command is '+first+'’s intersquad and game TrackMan locations (no bullpens; game 0-2 pitches left out) read as misses from a middle-middle target, pooled over all counts and batters. ')
     +'Each pitch is steadied with the staff’s pattern (worth '+AIM_PRIOR+' pitches). '+(AIM.obj==='zone'?'Colour = share of pitches that land in the zone from each aim point.'
     :'Colour = expected run value of aiming there compared with a pitch that is simply a ball, scaled within each panel. Run values are measured from 2026 D1 pitches by pitch type, pitcher and batter hand and count'+(Object.keys(model.stuff).length?', then adjusted for his Stuff+ (estimated from his TrackMan numbers).':'.'))];
   c.font='400 10px '+FONT;let ny=ly+52;const maxW=sz.W-2*L.PAD;
@@ -2511,7 +2519,7 @@ let AIM_MODEL=null;
 function renderAim(){
   const psel=document.getElementById('amPitcher'),body=document.getElementById('amBody');
   const list=aimPitchers();const prev=AIM.pid||psel.value;
-  psel.innerHTML=list.length?list.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join(''):'<option value="">— no intersquad TrackMan yet —</option>';
+  psel.innerHTML=list.length?list.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join(''):'<option value="">— no intersquad/game TrackMan yet —</option>';
   if(prev&&list.some(p=>p.id===prev))psel.value=prev;AIM.pid=psel.value||null;
   const csel=document.getElementById('amCount');
   if(!csel.options.length)csel.innerHTML='<option value="">All counts</option><option value="each">Every count (12 rows)</option>'+AIM_COUNTS.map(k=>`<option value="${k}">${k}</option>`).join('');
