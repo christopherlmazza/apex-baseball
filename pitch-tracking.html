@@ -285,7 +285,7 @@
 <section class="view" id="v-leaderboard">
   <div class="card">
     <div class="row">
-      <div><label class="fld">Environment</label><select id="lbEnv"><option value="">All</option><option value="bullpen">Bullpen</option><option value="intersquad">Intersquad</option></select></div>
+      <div><label class="fld">Environment</label><select id="lbEnv"><option value="">All</option><option value="bullpen">Bullpen</option><option value="intersquad">Intersquad</option><option value="game">Game</option></select></div>
       <div><label class="fld">Batter hand</label><select id="lbSide"><option value="">All batters</option><option value="R">vs RHH</option><option value="L">vs LHH</option></select></div>
       <div><label class="fld">Pitch type</label><select id="lbType"></select></div>
       <div><label class="fld">Usage for</label><select id="lbPitcher"></select></div>
@@ -296,7 +296,7 @@
       <div><label class="fld">Outs</label><select id="lbOuts"><option value="">Any</option><option>0</option><option>1</option><option>2</option></select></div>
       <div><label class="fld">Runners</label><select id="lbRun"><option value="">Any</option><option value="empty">Bases empty</option><option value="on">Anyone on</option><option value="risp">RISP (2nd/3rd)</option><option value="loaded">Loaded</option><option value="on1">On 1st</option><option value="on2">On 2nd</option><option value="on3">On 3rd</option></select></div>
     </div>
-    <div class="hint">TrackMan drives velo, spin &amp; Zone%. The count / outs / runners filters and the usage bars below apply to <b>charted intersquad pitches</b> (charting has the game context). Tap a column to sort.</div>
+    <div class="hint">TrackMan drives velo, spin &amp; Zone%. The count / outs / runners filters and the usage bars below apply to <b>charted intersquad &amp; game pitches</b> (charting has the game context). Tap a column to sort.</div>
   </div>
   <div id="lbUsage"></div>
   <div id="lbBody"></div>
@@ -342,7 +342,7 @@
     <h3>Trends <span class="muted" style="text-transform:none;letter-spacing:0">— TrackMan metrics over time, per pitcher</span></h3>
     <div class="row">
       <div><label class="fld">Pitcher</label><select id="trPitcher"></select></div>
-      <div><label class="fld">Environment</label><select id="trEnv"><option value="">All</option><option value="bullpen">Bullpen</option><option value="intersquad">Intersquad</option></select></div>
+      <div><label class="fld">Environment</label><select id="trEnv"><option value="">All</option><option value="bullpen">Bullpen</option><option value="intersquad">Intersquad</option><option value="game">Game</option></select></div>
     </div>
     <div class="row" style="margin-top:8px">
       <div><label class="fld">Pitch type</label><select id="trType"></select></div>
@@ -357,7 +357,7 @@
   <div class="card">
     <h3>Command <span class="muted" style="text-transform:none;letter-spacing:0">— miss from middle-middle (catcher's view)</span></h3>
     <div class="row"><div><label class="fld">Pitcher</label><select id="cmPitcher"></select></div>
-      <div><label class="fld">Environment</label><select id="cmEnv"><option value="">All</option><option value="bullpen">Bullpen</option><option value="intersquad">Intersquad</option></select></div></div>
+      <div><label class="fld">Environment</label><select id="cmEnv"><option value="">All</option><option value="bullpen">Bullpen</option><option value="intersquad">Intersquad</option><option value="game">Game</option></select></div></div>
   </div>
   <div id="cmBody"></div>
 </section>
@@ -1023,7 +1023,7 @@ function reportItems(){
   // Intersquads: one report PER PITCHER (never one blended report for the whole session).
   DB.sessions.forEach(s=>{
     const pids=new Set();
-    (DB.outings||[]).filter(o=>o.sessionId===s.id&&outEnv(o)==='intersquad').forEach(o=>pids.add(o.pitcherId));
+    (DB.outings||[]).filter(o=>o.sessionId===s.id&&outEnv(o)!=='bullpen').forEach(o=>pids.add(o.pitcherId));
     (s.pitches||[]).forEach(x=>{if((x.kind===undefined||x.kind==='p')&&x.pitcherId)pids.add(x.pitcherId);});
     if(!pids.size){items.push({key:'s:'+s.id,pid:'',date:s.date,sort:(s.date||'')+' '+(s.label||''),
       label:`${fmtDate(s.date)} · ${s.label||'Intersquad'} · Intersquad (no data yet)`,short:`${fmtDate(s.date)} · ${s.label||'Intersquad'} (no data yet)`});return;}
@@ -1267,9 +1267,9 @@ function lbGameFilter(){
   return {active,pred};
 }
 // annotated charted pitches for a pitcher across intersquad sessions, filtered by hand + game context + type
-function chartedPitchesFor(pid, side, pred, typeF){
+function chartedPitchesFor(pid, side, pred, typeF, env){
   const out=[];
-  DB.sessions.forEach(s=>{ if(!(s.pitches||[]).some(x=>x.pitcherId===pid))return;
+  DB.sessions.forEach(s=>{ if(!envOk(s,env))return; if(!(s.pitches||[]).some(x=>x.pitcherId===pid))return;
     const ann=replaySession(s).annotated;
     ann.forEach(a=>{ if(a.pitcherId!==pid)return;
       if(side&&(a.side||'R')!==side)return;
@@ -1305,7 +1305,7 @@ function renderLeaderboard(){
   // ---- usage-by-pitch-type: whole staff or a single pitcher, respecting the game filter ----
   let allCharted=[];
   const usageRoster=usagePid?DB.roster.filter(p=>p.id===usagePid):DB.roster;
-  usageRoster.forEach(p=>{allCharted=allCharted.concat(chartedPitchesFor(p.id,side,gf.pred,null));});
+  usageRoster.forEach(p=>{allCharted=allCharted.concat(chartedPitchesFor(p.id,side,gf.pred,null,env));});
   const usageEl=document.getElementById('lbUsage');
   if(env!=='bullpen' && allCharted.length){
     const byT={};allCharted.forEach(a=>{byT[a.type]=(byT[a.type]||0)+1;});
@@ -1330,7 +1330,7 @@ function renderLeaderboard(){
     const zone=ztot?pct(zin,ztot):null;
     let m=null,cn=0;
     if(env!=='bullpen'){
-      const list=chartedPitchesFor(p.id,side,gf.pred,typeF||null);
+      const list=chartedPitchesFor(p.id,side,gf.pred,typeF||null,env);
       if(list.length){m=chartStatsFromPitches(list);cn=list.length;}
     }
     if(!tmN && !cn)return null;
@@ -1399,14 +1399,15 @@ const LOG_HEADS=['','IP','E.R.A','Bavg.A.','WHIP','Hits',"AB's",'Runs','ER','BB'
 const PL_TMPL_B64="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";
 function logScopeSessions(){
   const v=document.getElementById('logScope').value;
+  if(v&&v.startsWith('env:'))return DB.sessions.filter(s=>sessEnv(s)===v.slice(4));
   if(v&&v!=='all'){const s=sessionById(v);return s?[s]:[];}
   return DB.sessions;
 }
 function renderLog(){
   const sc=document.getElementById('logScope');
   const cur=sc.value;
-  sc.innerHTML='<option value="all">All sessions</option>'+DB.sessions.map(s=>`<option value="${s.id}">${fmtDate(s.date)} · ${esc(s.label||'Session')}${s.ended?' · ended':''}</option>`).join('');
-  if(cur&&(cur==='all'||sessionById(cur)))sc.value=cur; else sc.value='all';
+  sc.innerHTML='<option value="all">All sessions</option><option value="env:intersquad">All intersquads</option><option value="env:game">All games</option>'+DB.sessions.map(s=>`<option value="${s.id}">${fmtDate(s.date)} · ${esc(s.label||'Session')}${s.ended?' · ended':''}</option>`).join('');
+  if(cur&&(cur==='all'||cur.startsWith('env:')||sessionById(cur)))sc.value=cur; else sc.value='all';
   sc.onchange=renderLog;
   document.getElementById('logDownload').onclick=downloadPitcherLog;
   const rows=pitcherLogRows(logScopeSessions(),DB.roster);
@@ -1523,21 +1524,21 @@ async function downloadPitcherLog(){
 
 /* ---------------- PITCHER DATABASE ---------------- */
 let PD={pid:null,env:'',side:''}; // env ''=all, 'bullpen', 'intersquad'
-function pdEnvSel(){return `<select id="pdEnv" style="width:auto"><option value="" ${PD.env===''?'selected':''}>All</option><option value="bullpen" ${PD.env==='bullpen'?'selected':''}>Bullpen</option><option value="intersquad" ${PD.env==='intersquad'?'selected':''}>Intersquad</option></select>`;}
-function intersquadSessIdsFor(pid){return DB.sessions.filter(s=>s.pitches.some(x=>x.pitcherId===pid)).map(s=>s.id);}
+function pdEnvSel(){return `<select id="pdEnv" style="width:auto"><option value="" ${PD.env===''?'selected':''}>All</option><option value="bullpen" ${PD.env==='bullpen'?'selected':''}>Bullpen</option><option value="intersquad" ${PD.env==='intersquad'?'selected':''}>Intersquad</option><option value="game" ${PD.env==='game'?'selected':''}>Game</option></select>`;}
+function intersquadSessIdsFor(pid,env){return DB.sessions.filter(s=>envOk(s,env)&&s.pitches.some(x=>x.pitcherId===pid)).map(s=>s.id);}
 function renderPitcherDB(){
   const body=document.getElementById('pdBody');
   if(!DB.roster.length){body.innerHTML='<div class="card empty">No pitchers yet — add your staff in the Data tab.</div>';return;}
   if(!PD.pid||!pitcherById(PD.pid)){
     // roster list
-    let h='<div class="card"><div class="flexb"><h3 style="margin:0">Pitcher database</h3><div class="spacer"></div>Environment '+pdEnvSel()+'</div><p class="muted" style="margin:8px 0 10px">Click a pitcher for their combined TrackMan stuff, movement, heatmaps &amp; (for intersquads) charting. Bullpens show TrackMan; strike%/CSW% need charting.</p><div class="tblscroll"><table><tr><th>Pitcher</th><th>Bullpens</th><th>Intersq.</th><th>#TM</th><th>Strike%</th><th>CSW%</th></tr>';
+    let h='<div class="card"><div class="flexb"><h3 style="margin:0">Pitcher database</h3><div class="spacer"></div>Environment '+pdEnvSel()+'</div><p class="muted" style="margin:8px 0 10px">Click a pitcher for their combined TrackMan stuff, movement, heatmaps &amp; (for intersquads) charting. Bullpens show TrackMan; strike%/CSW% need charting.</p><div class="tblscroll"><table><tr><th>Pitcher</th><th>Bullpens</th><th>Intersq.</th><th>Games</th><th>#TM</th><th>Strike%</th><th>CSW%</th></tr>';
     DB.roster.forEach(p=>{
-      const bpN=outingsFor(p.id,'bullpen').length, isN=outingsFor(p.id,'intersquad').length;
+      const bpN=outingsFor(p.id,'bullpen').length, isN=outingsFor(p.id,'intersquad').length, gmN=outingsFor(p.id,'game').length;
       const agg=aggTM(outingsFor(p.id,PD.env));const tmN=Object.values(agg.byType).reduce((a,b)=>a+(b.n||0),0);
       let strike='—',csw='—';
-      if(PD.env!=='bullpen'){const m=computeMetrics(gatherPAs(intersquadSessIdsFor(p.id),p.id),'');if(m.n){strike=fmtPct(pct(m.strikes,m.n));csw=fmtPct(pct(m.csw,m.n));}}
-      if(!tmN && !bpN && !isN)return;
-      h+=`<tr><td><span class="pitcherlink" data-pid="${p.id}">${esc(p.name)}</span></td><td>${bpN}</td><td>${isN}</td><td>${tmN}</td><td>${strike}</td><td>${csw}</td></tr>`;
+      if(PD.env!=='bullpen'){const m=computeMetrics(gatherPAs(intersquadSessIdsFor(p.id,PD.env),p.id),'');if(m.n){strike=fmtPct(pct(m.strikes,m.n));csw=fmtPct(pct(m.csw,m.n));}}
+      if(!tmN && !bpN && !isN && !gmN)return;
+      h+=`<tr><td><span class="pitcherlink" data-pid="${p.id}">${esc(p.name)}</span></td><td>${bpN}</td><td>${isN}</td><td>${gmN}</td><td>${tmN}</td><td>${strike}</td><td>${csw}</td></tr>`;
     });
     h+='</table></div></div>';
     body.innerHTML=h;
@@ -1552,11 +1553,11 @@ function renderPitcherDB(){
     <h3 style="margin:0">${esc(p.name)}</h3><div class="spacer"></div>
     Env ${pdEnvSel()}
     <select id="pdSide" style="width:auto"><option value="">All batters</option><option value="R" ${PD.side==='R'?'selected':''}>vs RHH</option><option value="L" ${PD.side==='L'?'selected':''}>vs LHH</option></select></div>
-    <div class="hint">${outingsFor(p.id,'bullpen').length} bullpen · ${outingsFor(p.id,'intersquad').length} intersquad TrackMan outing(s). Batter hand applies to charting only.</div></div>`;
+    <div class="hint">${outingsFor(p.id,'bullpen').length} bullpen · ${outingsFor(p.id,'intersquad').length} intersquad · ${outingsFor(p.id,'game').length} game TrackMan outing(s). Batter hand applies to charting only.</div></div>`;
   // Charting KPIs (intersquads), when not viewing bullpens only
   if(PD.env!=='bullpen'){
-    const m=computeMetrics(gatherPAs(intersquadSessIdsFor(p.id),p.id),PD.side);
-    if(m.n){h+=metricsKpiHtml(m,'Charting — intersquads'+(PD.side?` vs ${PD.side==='R'?'RHH':'LHH'}`:''));h+=usageTableHtml(m);}
+    const m=computeMetrics(gatherPAs(intersquadSessIdsFor(p.id,PD.env),p.id),PD.side);
+    if(m.n){h+=metricsKpiHtml(m,'Charting — '+(PD.env==='game'?'games':PD.env==='intersquad'?'intersquads':'intersquads & games')+(PD.side?` vs ${PD.side==='R'?'RHH':'LHH'}`:''));h+=usageTableHtml(m);}
   }
   // TrackMan stuff + heatmaps (always, from aggregated outings)
   if(Object.keys(agg.byType).length){h+=tmStuffTableHtml(agg.byType,agg.loc);}
@@ -1893,8 +1894,11 @@ function saveOuting(pid,name,date,env,byType,sessionId,loc,pitches,file){
   const i=DB.outings.findIndex(o=>o.id===id);
   if(i>=0)DB.outings[i]=rec;else DB.outings.push(rec);
 }
-// Two environments only: an outing tied to a charted session is an intersquad; everything else is a bullpen.
-function outEnv(o){return (o&&o.env!=='bullpen'&&o.sessionId)?'intersquad':'bullpen';}
+// Three environments: an outing tied to a TrackMan game is a game, one tied to any other charted session is an intersquad; everything else is a bullpen.
+function outEnv(o){if(!o||o.env==='bullpen'||!o.sessionId)return 'bullpen';if(o.env==='game')return 'game';const s=sessionById(o.sessionId);return (s&&s.kind==='game')?'game':'intersquad';}
+// Environment of a charted session: 'game' for TrackMan game imports, else 'intersquad'.
+function sessEnv(s){return s&&s.kind==='game'?'game':'intersquad';}
+function envOk(s,env){return !env||env===sessEnv(s);}
 // All outings for a pitcher, optionally filtered by environment ('bullpen'|'intersquad'|'' = all).
 function outingsFor(pid,env){return (DB.outings||[]).filter(o=>o.pitcherId===pid&&(!env||outEnv(o)===env));}
 function pitchersWithTM(env){const s=new Set((DB.outings||[]).filter(o=>!env||outEnv(o)===env).map(o=>o.pitcherId));return DB.roster.filter(p=>s.has(p.id));}
@@ -2035,7 +2039,7 @@ function tmGameCardHtml(g,idx){
       <div><label class="fld">Date</label><input type="date" data-idx="${idx}" class="tmgDate" value="${g.date||''}"></div></div>
     <div class="tblscroll" style="margin-top:10px"><table><tr><th>TrackMan name</th><th>Throws</th><th>Pitches</th><th>Maps to pitcher</th></tr>`;
   ps.forEach(p=>{h+=`<tr><td>${esc(p.name)}</td><td>${esc((p.throws||'')[0]||'')}</td><td>${p.n}</td><td><select data-idx="${idx}" data-name="${esc(p.name)}" class="tmgMap" style="min-width:180px">${opts(g.map[p.name])}</select></td></tr>`;});
-  h+=`</table></div><div class="hint">Saved as a charted game: every pitch keeps its count, batter hand, result and plate location, so Reports, the Pitcher Log, Command and Optimal Aim all pick it up. Each pitcher also gets this game's TrackMan stuff and locations. Saving the same file again replaces it instead of doubling it.</div>
+  h+=`</table></div><div class="hint">Saved as a charted game: every pitch keeps its count, batter hand, result and plate location, so Reports, the Leaderboard, the Pitcher Log and Command all pick it up under the <b>Game</b> environment (Optimal Aim stays intersquad-only, since catchers move the target in games). Each pitcher also gets this game's TrackMan stuff and locations. Saving the same file again replaces it instead of doubling it.</div>
     <div class="flexb" style="margin-top:10px"><button class="btn red sm" onclick="saveTMGame(${idx})">${g.applied?'Re-save game':'Save game'}</button>
       <button class="btn ghost sm" onclick="dropTM(${idx})">Remove</button></div></div>`;
   return h;
@@ -2115,7 +2119,7 @@ window.saveTMGame=function(idx){
       byType[c]={n:a.length,veloAvg:avg(a,t=>t.velo,1),veloTop:vs.length?Math.max(...vs):null,spin:avg(a,t=>t.spin,0),ivb:avg(a,t=>t.ivb,1),hb:avg(a,t=>t.hb,1),
         ext:avg(a,t=>t.ext,2),relH:avg(a,t=>t.relH,2),relSide:avg(a,t=>t.relSide,2),spinEff:null,vaa:avg(a,t=>t.vaa,1),haa:avg(a,t=>t.haa,1)};}
     sess.tmLoc[pid]=loc;
-    saveOuting(pid,p.name,g.date,'intersquad',byType,sess.id,loc,per,g.file);saved.push(pitcherName(pid)+' ('+mine.length+')');});
+    saveOuting(pid,p.name,g.date,'game',byType,sess.id,loc,per,g.file);saved.push(pitcherName(pid)+' ('+mine.length+')');});
   g.applied=true;save();refreshSessionPickers();renderTMResults();
   alert('Saved "'+g.label+'" — '+saved.length+' pitcher(s): '+saved.join(', ')+'.\nFind it in Reports: pick the pitcher, then this game.');
 };
@@ -2180,13 +2184,13 @@ function trLineSVG(series,unit){
   // line
   let d='';series.forEach((p,i)=>{d+=(i?'L':'M')+X(i).toFixed(1)+' '+Y(p.v).toFixed(1)+' ';});
   s+=`<path d="${d}" fill="none" stroke="var(--red)" stroke-width="2.5"/>`;
-  const envColor=e=>e==='intersquad'?'#f0b23a':'#5ad07a';
+  const envColor=e=>e==='game'?'#58a6ff':e==='intersquad'?'#f0b23a':'#5ad07a';
   series.forEach((p,i)=>{const cx=X(i),cy=Y(p.v);
     s+=`<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4" fill="${envColor(p.env)}" stroke="#0d1117" stroke-width="1.5"/>`;
     s+=`<text x="${cx.toFixed(1)}" y="${(cy-9).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--ink)">${p.v}</text>`;
     if(n<=12)s+=`<text x="${cx.toFixed(1)}" y="${(H-12).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--dim)">${(p.date||'').slice(5)}</text>`;});
   s+=`</svg>`;
-  return `<div style="overflow-x:auto">${s}</div><div class="hint" style="margin-top:2px"><span style="color:#5ad07a">●</span> bullpen &nbsp; <span style="color:#f0b23a">●</span> intersquad</div>`;
+  return `<div style="overflow-x:auto">${s}</div><div class="hint" style="margin-top:2px"><span style="color:#5ad07a">●</span> bullpen &nbsp; <span style="color:#f0b23a">●</span> intersquad &nbsp; <span style="color:#58a6ff">●</span> game</div>`;
 }
 
 /* ---------------- COMMAND ---------------- */
