@@ -2212,7 +2212,7 @@ function outingsLoc(pid,env){
   });
   return out;
 }
-// Precision = how tightly a pitch type clusters around its OWN centre, regardless of where that centre is.
+// Precision (spread) = how tightly a pitch type clusters around its OWN centre, regardless of where that centre is.
 // Points are [nx,ny] in a 4 ft x 4 ft box (pitcher's view x); 1 unit = 48 in.
 function cmStats(pts,hand){
   const n=pts.length;const cx=pts.reduce((a,p)=>a+p[0],0)/n,cy=pts.reduce((a,p)=>a+p[1],0)/n;
