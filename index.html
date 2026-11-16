@@ -1028,7 +1028,7 @@ function tnRenderVisual(){
   s+='<rect x="'+(W/2-70)+'" y="10" width="140" height="30" rx="15" fill="'+tnCol(r.score)+'" opacity="0.16" stroke="'+tnCol(r.score)+'"/>';
   s+='<text x="'+(W/2)+'" y="30" fill="'+tnCol(r.score)+'" font-size="15" font-weight="800" text-anchor="middle">Tunnel: '+r.score+'</text>';
   s+='<text x="'+(W/2)+'" y="48" fill="var(--mut)" font-size="10" text-anchor="middle">Δ '+r.dmph.toFixed(1)+' mph · ratio '+r.ratio.toFixed(1)+'×'+(r.ov!=null?' · overlap '+Math.round(r.ov*100)+'%':'')+'</text>';
-  s+='<g id="tnAnim" style="display:none"><circle id="tnBallA" r="5" fill="'+ptColor(a.pt)+'" stroke="#fff" stroke-width="1.2"/><circle id="tnBallB" r="5" fill="'+ptColor(b.pt)+'" stroke="#fff" stroke-width="1.2"/>'+
+  s+='<g id="tnAnim" style="display:none;pointer-events:none"><circle id="tnBallA" r="5" fill="'+ptColor(a.pt)+'" stroke="#fff" stroke-width="1.2"/><circle id="tnBallB" r="5" fill="'+ptColor(b.pt)+'" stroke="#fff" stroke-width="1.2"/>'+
     '<text id="tnAnimT" x="'+(W-12)+'" y="'+(H-8)+'" fill="var(--txt)" font-size="11" font-weight="700" text-anchor="end"></text>'+
     '<text id="tnAnimDec" x="'+(W/2)+'" y="66" fill="#f5d33d" font-size="12" font-weight="800" text-anchor="middle"></text></g>';
   s+='<text x="12" y="'+(H-8)+'" fill="var(--dim)" font-size="8.5">drag to orbit · 360° view</text>';
