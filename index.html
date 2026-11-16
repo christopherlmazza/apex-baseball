@@ -983,6 +983,9 @@ function tnRenderVisual(){
   var cam=TUN.cam||(TUN.cam={az:0,el:0,R:29.6});
   var ce=Math.cos(cam.el),se=Math.sin(cam.el),f=[ce*Math.sin(cam.az),ce*Math.cos(cam.az),-se];
   var C=[PIV[0]-cam.R*f[0],PIV[1]-cam.R*f[1],PIV[2]-cam.R*f[2]];
+  // hitter POV: camera just behind the hitter's head in the box (RHH on the 3B side = -X, LHH on the 1B side = +X), looking out at the release
+  if(cam.pov){var eye=cam.pov==='R'?[-2.2,-5.2,5.4]:[2.2,-5.2,5.4],look=[0,17,2.8];
+    C=eye;var d0=[look[0]-eye[0],look[1]-eye[1],look[2]-eye[2]],dm=Math.hypot(d0[0],d0[1],d0[2]);f=[d0[0]/dm,d0[1]/dm,d0[2]/dm];}
   function cx3(a2,b2){return [a2[1]*b2[2]-a2[2]*b2[1],a2[2]*b2[0]-a2[0]*b2[2],a2[0]*b2[1]-a2[1]*b2[0]];}
   function nm3(v){var m=Math.hypot(v[0],v[1],v[2])||1;return [v[0]/m,v[1]/m,v[2]/m];}
   var rt=nm3(cx3(f,[0,0,1])),up=cx3(rt,f);
@@ -1031,13 +1034,15 @@ function tnRenderVisual(){
   s+='<g id="tnAnim" style="display:none;pointer-events:none"><circle id="tnBallA" r="5" fill="'+ptColor(a.pt)+'" stroke="#fff" stroke-width="1.2"/><circle id="tnBallB" r="5" fill="'+ptColor(b.pt)+'" stroke="#fff" stroke-width="1.2"/>'+
     '<text id="tnAnimT" x="'+(W-12)+'" y="'+(H-8)+'" fill="var(--txt)" font-size="11" font-weight="700" text-anchor="end"></text>'+
     '<text id="tnAnimDec" x="'+(W/2)+'" y="66" fill="#f5d33d" font-size="12" font-weight="800" text-anchor="middle"></text></g>';
-  s+='<text x="12" y="'+(H-8)+'" fill="var(--dim)" font-size="8.5">drag to orbit · 360° view</text>';
+  s+='<text x="12" y="'+(H-8)+'" fill="var(--dim)" font-size="8.5">'+(cam.pov?(cam.pov==='R'?'Right':'Left')+'-handed hitter\'s view · drag to orbit':'drag to orbit · 360° view')+'</text>';
   panel.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div><span class="dot" style="background:'+ptColor(a.pt)+'"></span> '+a.pt+' '+fmt(a.velo)+' · '+fmt(a.ivb)+'″iVB '+fmt((a.hand==='L'?-1:1)*(a.hb||0))+'″HB &nbsp; <span class="dot" style="background:'+ptColor(b.pt)+'"></span> '+b.pt+' '+fmt(b.velo)+' · '+fmt((b.hand==='L'?-1:1)*(b.hb||0))+'″HB</div></div>'+s+'</svg>'+
   '<div style="display:flex;gap:5px;justify-content:center;align-items:center;margin-top:8px">'+
   '<button class="tnpanb" data-pan="L" style="background:#16203a;border:1px solid #2a3a5c;color:var(--txt);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px">◀</button>'+
   '<div style="display:flex;flex-direction:column;gap:4px"><button class="tnpanb" data-pan="U" style="background:#16203a;border:1px solid #2a3a5c;color:var(--txt);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:13px">▲</button><button class="tnpanb" data-pan="D" style="background:#16203a;border:1px solid #2a3a5c;color:var(--txt);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:13px">▼</button></div>'+
   '<button class="tnpanb" data-pan="R" style="background:#16203a;border:1px solid #2a3a5c;color:var(--txt);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px">▶</button>'+
-  '<button class="tnpanb" data-pan="0" style="background:#16203a;border:1px solid #2a3a5c;color:var(--mut);border-radius:6px;padding:5px 11px;cursor:pointer;font-size:11px;margin-left:10px">Catcher POV</button></div>'+
+  '<button class="tnpanb" data-pan="0" style="background:#16203a;border:1px solid #2a3a5c;color:var(--mut);border-radius:6px;padding:5px 11px;cursor:pointer;font-size:11px;margin-left:10px'+(!TUN.cam.pov&&!TUN.cam.az&&!TUN.cam.el?';border-color:var(--acc);color:var(--acc)':'')+'">Catcher POV</button>'+
+  '<button class="tnpanb" data-pan="RHH" style="background:#16203a;border:1px solid #2a3a5c;color:var(--mut);border-radius:6px;padding:5px 11px;cursor:pointer;font-size:11px'+(TUN.cam.pov==='R'?';border-color:var(--acc);color:var(--acc)':'')+'">RHH POV</button>'+
+  '<button class="tnpanb" data-pan="LHH" style="background:#16203a;border:1px solid #2a3a5c;color:var(--mut);border-radius:6px;padding:5px 11px;cursor:pointer;font-size:11px'+(TUN.cam.pov==='L'?';border-color:var(--acc);color:var(--acc)':'')+'">LHH POV</button></div>'+
   '<div style="display:flex;gap:6px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:8px">'+
   '<button id="tnPlay" style="background:#16203a;border:1px solid #2a3a5c;color:var(--txt);border-radius:6px;padding:5px 11px;cursor:pointer;font-size:12px;font-weight:700">'+(TUN.anim?'■ Stop':'▶ Play pitches')+'</button>'+
   '<select id="tnSpeed" class="sel" style="padding:5px 8px;font-size:12px" aria-label="Playback speed">'+[[1,'Real time'],[0.5,'½ speed'],[0.25,'¼ speed'],[0.1,'Slow-mo (⅒)']].map(function(o){return '<option value="'+o[0]+'"'+((TUN.speed||0.25)==o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'+
@@ -1073,13 +1078,15 @@ function wireTunnel(){var svg=el('tnSvg');if(!svg)return;var panel=el('tnVizPane
   var sp=el('tnSpeed');if(sp)sp.onchange=function(){TUN.speed=+this.value;};
   var lp=el('tnLoop');if(lp)lp.onchange=function(){TUN.loop=this.checked;if(TUN.loop&&TUN.anim&&TUN.anim.done)tnAnimStart();};
   if(panel)panel.querySelectorAll('.tnpanb').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var d=b.getAttribute('data-pan'),c=TUN.cam;
+    if(d==='RHH'||d==='LHH'){c.pov=d[0];tnRenderVisual();return;}
+    if(c.pov){c.pov=null;c.az=0;c.el=0;}
     if(d==='L')c.az-=0.26;else if(d==='R')c.az+=0.26;
     else if(d==='U')c.el=Math.min(1.2,c.el+0.18);else if(d==='D')c.el=Math.max(-1.2,c.el-0.18);
     else{c.az=0;c.el=0;}tnRenderVisual();});});
   svg.querySelectorAll('.tndot').forEach(function(c){c.addEventListener('pointerdown',function(e){e.stopPropagation();TUN.sel=+c.getAttribute('data-i');tnRenderVisual();});});
   svg.addEventListener('pointerdown',function(e){var rect=svg.getBoundingClientRect();TUN._drag={x:e.clientX,y:e.clientY,moved:0,rect:rect};
     function mv(ev){var dx=ev.clientX-TUN._drag.x,dy=ev.clientY-TUN._drag.y;TUN._drag.x=ev.clientX;TUN._drag.y=ev.clientY;
-      if(Math.abs(dx)+Math.abs(dy)>0){TUN._drag.moved+=Math.abs(dx)+Math.abs(dy);var c=TUN.cam;c.az+=dx*0.008;c.el=Math.max(-1.2,Math.min(1.2,c.el-dy*0.008));tnRenderVisual();}}
+      if(Math.abs(dx)+Math.abs(dy)>0){TUN._drag.moved+=Math.abs(dx)+Math.abs(dy);var c=TUN.cam;if(c.pov){c.pov=null;c.az=0;c.el=0;}c.az+=dx*0.008;c.el=Math.max(-1.2,Math.min(1.2,c.el-dy*0.008));tnRenderVisual();}}
     function upp(ev){window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',upp);
       if(TUN._drag.moved<3&&TUN.sel!=null)tnPlateMove(TUN._drag.rect,ev.clientX,ev.clientY);TUN._drag=null;}
     window.addEventListener('pointermove',mv);window.addEventListener('pointerup',upp);});
